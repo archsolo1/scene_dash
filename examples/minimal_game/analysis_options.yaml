@@ -1,3 +1,0 @@
-include: package:lints/recommended.yaml
-
-# Generated parts (*.scene_dash.g.dart) are checked as part of the library.

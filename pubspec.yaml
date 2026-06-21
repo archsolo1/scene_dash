@@ -10,9 +10,7 @@ workspace:
   - packages/scene_dash
   - packages/scene_dash_generator
   - packages/scene_dash_flutter_scene
-  - examples/minimal_game
   - examples/scene_game
-  - examples/scene_benchmark
   - benchmarks
 
 # Note: scene_dash_flutter_scene depends on Flutter + flutter_scene, so the

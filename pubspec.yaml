@@ -1,0 +1,19 @@
+# Requires Dart >= 3.6 (workspaces). Run `dart pub get` here to resolve all
+# members at once.
+name: _scene_dash_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.6.0
+
+workspace:
+  - packages/scene_dash
+  - packages/scene_dash_generator
+  - packages/scene_dash_flutter_scene
+  - examples/minimal_game
+  - examples/scene_game
+  - examples/scene_benchmark
+  - benchmarks
+
+# Note: scene_dash_flutter_scene depends on Flutter + flutter_scene, so the
+# whole workspace now resolves via `flutter pub get` (not `dart pub get`).

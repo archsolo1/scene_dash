@@ -1,0 +1,11 @@
+# Phase 2 (generator foundation). Wired up but not yet emitting code.
+builders:
+  scene_dash:
+    import: "package:scene_dash_generator/builder.dart"
+    builder_factories: ["sceneDashBuilder"]
+    build_extensions:
+      ".dart": [".scene_dash.g.part"]
+    auto_apply: dependents
+    build_to: cache
+    applies_builders:
+      - source_gen:combining_builder

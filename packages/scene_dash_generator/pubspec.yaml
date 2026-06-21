@@ -1,0 +1,24 @@
+name: scene_dash_generator
+description: >-
+  Build-time code generator for scene_dash. Emits component stores, packed
+  component references, bundle adapters, system adapters and plugin metadata
+  from scene_dash annotations. Game projects depend on this as a dev dependency.
+version: 0.0.1
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  scene_dash:
+    path: ../scene_dash
+  analyzer: ^13.3.0
+  build: ^4.0.6
+  source_gen: ^4.2.3
+
+dev_dependencies:
+  build_runner: ^2.15.0
+  build_test: ^3.5.15
+  lints: ^6.1.0
+  test: ^1.31.1

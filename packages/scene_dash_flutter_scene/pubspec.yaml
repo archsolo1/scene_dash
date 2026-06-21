@@ -1,0 +1,27 @@
+name: scene_dash_flutter_scene
+description: >-
+  flutter_scene integration for scene_dash: the internal scene driver,
+  SceneCommands, SceneNodeRef, transform synchronization and the generic
+  physics-world bridge.
+version: 0.0.1
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  scene_dash:
+    path: ../scene_dash
+  # flutter_scene 0.18.x requires a recent Flutter master build (Flutter GPU /
+  # Impeller) and `flutter run --enable-flutter-gpu`.
+  flutter_scene: ^0.18.1
+  vector_math: ^2.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

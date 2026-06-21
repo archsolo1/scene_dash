@@ -1,0 +1,32 @@
+name: scene_game
+description: >-
+  A small runnable Flutter app showing Scene-Dash driving flutter_scene: a ring
+  of cubes moved by an ECS system and synchronized to scene nodes through the
+  bridge. Requires the Flutter master channel + Flutter GPU
+  (`flutter run --enable-flutter-gpu`).
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_scene: ^0.18.1
+  scene_dash:
+    path: ../../packages/scene_dash
+  scene_dash_flutter_scene:
+    path: ../../packages/scene_dash_flutter_scene
+  vector_math: ^2.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  scene_dash_generator:
+    path: ../../packages/scene_dash_generator
+  build_runner: ^2.15.0
+  flutter_lints: ^6.0.0
+
+flutter: {}

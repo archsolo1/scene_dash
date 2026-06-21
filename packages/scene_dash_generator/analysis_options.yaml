@@ -1,0 +1,7 @@
+include: package:lints/recommended.yaml
+
+linter:
+  rules:
+    - prefer_final_locals
+    - prefer_final_in_for_each
+    - directives_ordering

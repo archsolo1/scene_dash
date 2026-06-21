@@ -3,9 +3,7 @@
 These benchmarks exist to measure the **real cost of the object-first
 sparse-set architecture** — most importantly, a straightforward `List<Actor>`
 loop next to the equivalent Scene-Dash query. They are a regression and
-sanity tool, not marketing. Per `docs/concept.md`, **do not claim sparse-set
-queries are faster than direct object iteration** — the numbers below show they
-are not, and that is fine: queries buy organization and component selection, at
+sanity tool, not marketing. queries buy organization and component selection, at
 a measurable per-entity cost.
 
 ## Running

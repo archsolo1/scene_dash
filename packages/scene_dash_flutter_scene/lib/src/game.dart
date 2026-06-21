@@ -11,7 +11,7 @@ import 'scene_transform.dart';
 /// The scene-aware facade over the core [App].
 ///
 /// `Game` composes an [App] with a `flutter_scene` [Scene] and installs the
-/// standard bridge behavior automatically, so feature plugins register only
+/// standard scene integration automatically, so feature plugins register only
 /// their own systems. On [start] it:
 ///
 /// * exposes the real [Scene] and [SceneCommands] as `@Resource()`s;
@@ -77,13 +77,13 @@ final class Game {
     }
     _loop.ensureTimeResources();
     // Expose the real flutter_scene Scene and the deferred scene-command buffer
-    // to systems via `@Resource()`. The bridge integrates flutter_scene; it does
-    // not wrap it — systems configure skybox/environment/lighting/etc. directly
+    // to systems via `@Resource()`. The integration wires flutter_scene in; it
+    // does not wrap it — systems configure skybox/environment/lighting/etc. directly
     // on `@Resource() Scene`.
     app.world.resources
       ..insert<Scene>(scene)
       ..insert<SceneCommands>(sceneCommands);
-    // Standard bridge systems (renderSync): auto-mount entity-bound nodes so a
+    // Standard integration systems (renderSync): auto-mount entity-bound nodes so a
     // `@Bundle` can create its own node and simply become visible, and sync the
     // standard SceneTransform onto bound nodes.
     app

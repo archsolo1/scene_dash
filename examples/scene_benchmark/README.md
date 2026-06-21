@@ -1,17 +1,28 @@
 # scene_benchmark
 
-A new Flutter project.
+An on-device timing harness for the Scene-Dash `flutter_scene` integration. It
+renders a 40×40 grid of 1,600 entity-bound cubes (10% animated), synced through
+the integration every frame, and prints per-frame `build` (UI thread) vs
+`raster` (GPU) times.
 
-## Getting Started
+It exists to answer a performance question honestly: *where does the per-frame
+cost actually go?* See [`benchmarks/README.md`](../../benchmarks/README.md) for
+the full analysis. Short version: the dominant cost is `flutter_scene` building
+per-node draw commands on the UI thread, not the ECS — which is why changed-only
+sync is deferred and instancing is the real lever.
 
-This project is a starting point for a Flutter application.
+## Run
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+# One node per cube, ECS + full sync (the default).
+flutter run --profile --enable-flutter-gpu examples/scene_benchmark
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+# Static control: same nodes, no ECS.
+flutter run --profile --enable-flutter-gpu --dart-define=useEcs=false
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# One InstancedMesh for the whole grid (pure game code, no integration support).
+flutter run --profile --enable-flutter-gpu --dart-define=instanced=true
+```
+
+Run in `--profile` (not debug) for meaningful numbers, and prefer a real mobile
+device over an emulator.

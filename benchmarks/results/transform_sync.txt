@@ -1,0 +1,32 @@
+
+=== Transform synchronization  (N = 100) ===
+  full TRS sync (unconditional)          11.01 ns/op
+  translation-only sync                  1.29 ns/op
+  changed-only sync (0% changed)         0.75 ns/op
+  changed-only sync (10% changed)        1.46 ns/op
+  changed-only sync (50% changed)        5.58 ns/op
+  changed-only sync (100% changed)       11.52 ns/op
+
+=== Transform synchronization  (N = 1000) ===
+  full TRS sync (unconditional)          11.02 ns/op
+  translation-only sync                  2.60 ns/op
+  changed-only sync (0% changed)         0.51 ns/op
+  changed-only sync (10% changed)        1.43 ns/op
+  changed-only sync (50% changed)        5.61 ns/op
+  changed-only sync (100% changed)       11.58 ns/op
+
+=== Transform synchronization  (N = 10000) ===
+  full TRS sync (unconditional)          13.74 ns/op
+  translation-only sync                  6.91 ns/op
+  changed-only sync (0% changed)         0.56 ns/op
+  changed-only sync (10% changed)        3.68 ns/op
+  changed-only sync (50% changed)        6.86 ns/op
+  changed-only sync (100% changed)       13.46 ns/op
+
+=== Transform synchronization  (N = 50000) ===
+  full TRS sync (unconditional)          20.45 ns/op
+  translation-only sync                  7.73 ns/op
+  changed-only sync (0% changed)         2.20 ns/op
+  changed-only sync (10% changed)        4.89 ns/op
+  changed-only sync (50% changed)        12.79 ns/op
+  changed-only sync (100% changed)       18.22 ns/op

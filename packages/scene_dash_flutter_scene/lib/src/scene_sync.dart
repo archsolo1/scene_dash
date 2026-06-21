@@ -58,7 +58,7 @@ final class SyncSceneNodesAdapter<T extends Object> implements SystemAdapter {
 }
 
 /// Synchronizes a game's own transform component [T] onto bound nodes, for
-/// games that do not use the bridge's standard `SceneTransform` (which `Game`
+/// games that do not use the integration's standard `SceneTransform` (which `Game`
 /// syncs automatically):
 ///
 /// ```dart

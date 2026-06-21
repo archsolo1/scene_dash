@@ -17,7 +17,7 @@ return SceneView(scene, cameraBuilder: buildCamera, onTick: game.onTick);
 ```
 
 Scene-Dash **complements** `flutter_scene`; it does not replace its scene graph,
-renderer, cameras, nodes, physics world, or frame loop. The bridge lets ECS
+renderer, cameras, nodes, physics world, or frame loop. The integration lets ECS
 systems work directly with those native objects.
 
 ## Smallest Complete Example
@@ -143,8 +143,8 @@ dart run build_runner build
 ```
 
 That is the whole loop: `Game` drives schedules from `SceneView`, startup spawns
-an entity with a `SceneTransform` and `SceneNodeRef`, and the bridge mounts the
-node and syncs the transform to `flutter_scene`.
+an entity with a `SceneTransform` and `SceneNodeRef`, and the integration mounts
+the node and syncs the transform to `flutter_scene`.
 
 The same ECS core also works without Flutter for headless tests and simulations:
 
@@ -157,7 +157,7 @@ app.runSchedule(Schedules.update);
 
 ## Quick Start
 
-This repository is a Dart pub workspace. Because the scene bridge depends on
+This repository is a Dart pub workspace. Because the scene integration depends on
 Flutter and `flutter_scene`, resolve it from the root with Flutter:
 
 ```bash
@@ -525,14 +525,22 @@ independence.
 ```dart
 final transform = SceneTransform.zero()
   ..setTranslation(0, 1, 0)
-  ..rotation.setFrom(Quaternion.axisAngle(Vector3(0, 1, 0), angle))
+  ..setRotationY(angle)
   ..setUniformScale(1.5);
 ```
 
-`SceneTransform` is a local translation/rotation/scale component. The bridge
-writes it onto the bound node during `Schedules.renderSync`. Add `PhysicsDriven`
-to entities whose node transform is owned by physics or another authority, so
-generic sync skips them.
+`SceneTransform` is a local translation/rotation/scale component with a complete
+gameplay API: translation (`setTranslation`, `translate`), scale (`setScale`,
+`setUniformScale`), rotation (`setRotationX/Y/Z`, `setRotationEuler`,
+`setRotationAxisAngle`, `setRotation`, and relative `rotate`/`rotateX/Y/Z`),
+`lookAt`, copy/reset (`setFrom`, `setIdentity`), and a matrix escape hatch
+(`setFromMatrix`, `toMatrix`). Angles are radians; forward is −Z and up is +Y.
+The fields stay directly mutable, so there is no dirty tracking — helper calls
+and direct field mutation are equivalent.
+
+The integration writes it onto the bound node during `Schedules.renderSync`. Add
+`PhysicsDriven` to entities whose node transform is owned by physics or another
+authority, so generic sync skips them.
 
 Games with a different transform type can use `CustomSceneSyncPlugin<T>` and
 provide either a translation callback or a full matrix writer.
@@ -554,7 +562,7 @@ final class AddDecorationSystem extends GameSystem with _$AddDecorationSystem {
 
 ## Physics and Collisions
 
-`PhysicsPlugin` is an optional convenience bridge for one default native
+`PhysicsPlugin` is an optional convenience adapter for one default native
 `flutter_scene` `PhysicsWorld` per `Game`.
 
 ```dart
@@ -706,10 +714,10 @@ simulation.
 | --- | --- |
 | [`packages/scene_dash`](packages/scene_dash) | Pure-Dart ECS runtime, annotations, commands, resources, events, schedules, queries. |
 | [`packages/scene_dash_generator`](packages/scene_dash_generator) | `source_gen` / `build_runner` adapters for systems, bundles, and plugin metadata. |
-| [`packages/scene_dash_flutter_scene`](packages/scene_dash_flutter_scene) | `Game`, `SceneNodeRef`, `SceneCommands`, `SceneTransform`, `PhysicsPlugin`, and the scene frame bridge. |
+| [`packages/scene_dash_flutter_scene`](packages/scene_dash_flutter_scene) | `Game`, `SceneNodeRef`, `SceneCommands`, `SceneTransform`, `PhysicsPlugin`, and the scene frame integration. |
 | [`examples/minimal_game`](examples/minimal_game) | Headless generated ECS example. |
 | [`examples/scene_game`](examples/scene_game) | Small `flutter_scene` app driven by Scene-Dash. |
-| [`examples/scene_benchmark`](examples/scene_benchmark) | On-device scene bridge timing harness. |
+| [`examples/scene_benchmark`](examples/scene_benchmark) | On-device scene integration timing harness. |
 | [`benchmarks`](benchmarks) | Pure-Dart query and structural benchmarks. |
 
 Deep design notes live in [`docs/concept.md`](docs/concept.md), and the package
@@ -735,5 +743,5 @@ cd ../scene_dash_flutter_scene
 flutter test
 ```
 
-The `flutter_scene` bridge imports `package:flutter_scene/scene.dart` for the
+The `flutter_scene` integration imports `package:flutter_scene/scene.dart` for the
 0.18.x API.

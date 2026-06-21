@@ -14,6 +14,7 @@ a measurable per-entity cost.
 dart run benchmarks/object_query_benchmark.dart    [entityCount]   # default 10000
 dart run benchmarks/spawn_despawn_benchmark.dart   [entityCount]
 dart run benchmarks/representative_benchmark.dart  [entityCount]
+dart run benchmarks/transform_sync_benchmark.dart  [entityCount]   # full vs changed-only sync
 ```
 
 ## Caveats
@@ -24,7 +25,7 @@ dart run benchmarks/representative_benchmark.dart  [entityCount]
   one entity), so treat absolute values as signals, not truth.
 - Microbenchmarks miss cache effects of real workloads. A representative scene
   workload (10k entities, 1k visible nodes, spawning/despawning, changed-only
-  node sync) belongs with the `flutter_scene` bridge (Phase 4/5).
+  node sync) belongs with the `flutter_scene` integration (Phase 4/5).
 - Captured runs can be saved under [`results/`](results/).
 
 ## Indicative results (one dev machine, JIT, N = 10,000)
@@ -70,14 +71,49 @@ queries is ~0.2 ms at 10k entities and ~2 ms at 100k — comfortably inside a
 
 The object-query path is not a per-frame bottleneck, so adding component
 change-versions + changed-only query iteration for *query speed* would be
-speculative complexity (`docs/concept.md` / `claude.md`: don't optimize without
+speculative complexity (`docs/concept.md`: don't optimize without
 benchmark evidence). The remaining question — whether changed-only *scene sync*
-is worth it — needed an on-device measurement.
+is worth it — needed both a microbenchmark of the sync arithmetic and an
+on-device measurement.
+
+## Transform-sync microbenchmark (`transform_sync_benchmark.dart`)
+
+Isolates the synchronization *arithmetic* the integration runs every frame —
+composing a `SceneTransform`'s translation/rotation/scale into a node's local
+`Matrix4` and marking it dirty — over a flat list (no query), so it measures the
+matrix/dirty work only. It compares the current unconditional sync against a
+dirty-flag changed-only sync swept across changed ratios. Indicative `ns/op`
+(per entity), JIT:
+
+| Row | N = 1,000 | N = 10,000 | N = 50,000 |
+| --- | --- | --- | --- |
+| full TRS sync (unconditional) | ~12.2 | ~13.5 | ~14.7 |
+| translation-only sync | ~2.6 | ~6.8 | ~7.2 |
+| changed-only, 0% changed (dirty check only) | ~0.6 | ~0.6 | ~1.0 |
+| changed-only, 10% changed | ~1.8 | ~4.1 | ~4.2 |
+| changed-only, 50% changed | ~5.9 | ~9.6 | ~11.4 |
+| changed-only, 100% changed | ~11.1 | ~13.5 | ~16.9 |
+
+**What this shows.** The full TRS composition is ~13 ns/entity and changed-only
+saves *proportionally to how static the scene is* (≈full cost × changed ratio,
+plus a ~1 ns/entity dirty-check floor). But the absolute sync arithmetic is tiny:
+even unconditional full sync at 10,000 entities is **~0.13 ms/frame**, and
+changed-only at 10% changed only reclaims ~0.1 ms of that. That is dwarfed by the
+~12 ms/frame `flutter_scene` spends building per-node draw commands on-device
+(below) — work changed-only sync *cannot* remove, because the node still exists
+and is still walked.
+
+**Decision: changed-only scene sync is deferred** (consistent with
+`docs/concept.md` Phase 5). The matrix arithmetic is sub-millisecond up to
+50,000 entities, so a dirty-tracking mechanism — which would also require
+wrapping `SceneTransform`'s currently-mutable vectors to be reliable — is not
+justified by these numbers. The lever is instancing, not change tracking (see
+below).
 
 ## On-device scene benchmark (`examples/scene_benchmark`)
 
 A 40×40 grid of **1,600 entity-bound cubes** (10% animated), synced through the
-bridge every frame, on a **Pixel 8 (Android 16), profile mode, Flutter GPU /
+integration every frame, on a **Pixel 8 (Android 16), profile mode, Flutter GPU /
 Impeller**. The app prints per-frame `build` (UI thread: ECS + sync + building
 the scene's draw commands) vs `raster` (GPU). Run it two ways:
 
@@ -116,10 +152,10 @@ work; the instanced mode is so cheap it barely warms the device):
    reclaim part of the ~2.4 ms ECS overhead, and only for static-heavy scenes; it
    cannot touch the dominant per-node rendering cost. Deferred — the ECS is
    already cheap (~1.5 µs/node).
-2. **Instancing is the lever, and it needs zero bridge support.** The instanced
-   path is *pure game code* — an `InstancedMesh` held as a resource, an
+2. **Instancing is the lever, and it needs zero integration support.** The
+   instanced path is *pure game code* — an `InstancedMesh` held as a resource, an
    `Instance` component, and a system writing instance transforms via the raw
    `flutter_scene` API (see `examples/scene_benchmark`, `--dart-define=instanced`).
-   Scene-Dash's bridge stays a thin lifecycle layer; it never grows a method per
+   Scene-Dash's integration stays a thin lifecycle layer; it never grows a method per
    `flutter_scene` feature, and games benefit the moment `flutter_scene`'s
    instanced backend matures, with no changes on our side.

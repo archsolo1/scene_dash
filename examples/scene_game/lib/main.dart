@@ -1,165 +1,178 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_scene/scene.dart';
-import 'package:scene_dash/scene_dash.dart';
+import 'package:flutter_scene_rapier/flutter_scene_rapier.dart';
 import 'package:scene_dash_flutter_scene/scene_dash_flutter_scene.dart';
 import 'package:vector_math/vector_math.dart' show Vector3;
 
-part 'main.g.dart';
+import 'game/camera.dart';
+import 'game/config.dart';
+import 'game/game_state.dart';
+import 'game/view_state.dart';
+import 'hud/game_hud.dart';
+import 'player/player.dart';
+import 'rocks/rocks.dart';
+import 'rules/rules.dart';
+import 'world/world.dart';
 
-// --- Components ---
-//
-// Position, rotation and scale use the bridge's standard `SceneTransform`,
-// which `Game` writes onto each bound node automatically.
-
-@ObjectComponent()
-final class Orbit {
-  final double radius;
-  final double speed;
-  double phase;
-  Orbit({required this.radius, required this.speed, required this.phase});
-}
-
-// --- Bundle: the complete definition of one cube ---
-
-const _ringSize = 8;
-
-@Bundle()
-final class CubeBundle with _$CubeBundle {
-  // Procedural, immutable cube geometry — created once and shared by every
-  // cube. Sharing is an optimization the bundle owns, not caller ceremony.
-  static final Mesh _mesh =
-      Mesh(CuboidGeometry(Vector3.all(0.8)), UnlitMaterial());
-
-  final SceneTransform transform;
-  final Orbit orbit;
-  final SceneNodeRef node;
-
-  /// One self-contained world object: gameplay state + transform + visual node.
-  /// The bridge mounts the node into the scene automatically.
-  CubeBundle({required double phase})
-      : transform = SceneTransform.zero(),
-        orbit = Orbit(radius: 3, speed: 1, phase: phase),
-        node = SceneNodeRef(Node(mesh: _mesh));
-}
-
-// --- Systems ---
-
-/// Startup system: spawns a ring of cubes. Each [CubeBundle] fully defines its
-/// own entity (state + node + mesh), so this is just `commands.spawn(...)`.
-@System()
-final class SpawnCubesSystem extends GameSystem with _$SpawnCubesSystem {
-  const SpawnCubesSystem();
-
-  void run(Commands commands) {
-    for (var i = 0; i < _ringSize; i++) {
-      commands.spawn(CubeBundle(phase: i / _ringSize * 2 * pi));
-    }
-  }
-}
-
-/// Per-frame system: advances each orbit and writes the position into
-/// [SceneTransform]. Runs in [Schedules.update] (works without a physics world).
-@System()
-final class OrbitSystem extends GameSystem with _$OrbitSystem {
-  const OrbitSystem();
-
-  void run(
-    @Query(writes: [SceneTransform, Orbit])
-    Query2<SceneTransform, Orbit> movers,
-    @Resource() FrameTime time,
-  ) {
-    movers.each((entity, transform, orbit) {
-      orbit.phase += orbit.speed * time.delta;
-      transform
-        ..x = orbit.radius * cos(orbit.phase)
-        ..z = orbit.radius * sin(orbit.phase);
-    });
-  }
-}
-
-// --- World plugin: scene-wide settings ---
-//
-// Scene-wide configuration (skybox, environment, lighting, ...) belongs to a
-// world/level plugin, not a bundle — there is one per scene, not one per
-// entity. The bridge exposes the real flutter_scene `Scene` as a resource, so
-// this uses the full flutter_scene API directly with no bridge wrapper.
-
-@System()
-final class SetupWorldSystem extends GameSystem with _$SetupWorldSystem {
-  const SetupWorldSystem();
-
-  void run(@Resource() Scene scene) {
-    scene.skybox = Skybox(GradientSkySource());
-  }
-}
-
-@GamePlugin()
-final class WorldPlugin extends Plugin {
-  const WorldPlugin();
-
-  @override
-  void build(AppBuilder app) {
-    app.addSystem(
-      const SetupWorldSystem(),
-      schedule: Schedules.startup,
-      label: const SystemLabel('world.setup'),
-    );
-  }
-}
-
-// --- Demo plugin ---
-
-@GamePlugin()
-final class DemoPlugin extends Plugin {
-  const DemoPlugin();
-
-  @override
-  void build(AppBuilder app) {
-    app
-      ..addSystem(
-        const SpawnCubesSystem(),
-        schedule: Schedules.startup,
-        label: const SystemLabel('demo.spawn'),
-      )
-      ..addSystem(
-        const OrbitSystem(),
-        schedule: Schedules.update,
-        label: const SystemLabel('demo.orbit'),
-      );
-  }
-}
-
-// --- App entry point ---
-
+/// Rock Dodge: an inclined platform, rolling rocks, and one player sphere.
+///
+/// The game is structured as Scene-Dash features (`world/`, `player/`,
+/// `rocks/`, `rules/`), each a plugin with its own systems. Physics is native
+/// `flutter_scene_rapier`; bundles attach real bodies and colliders to scene
+/// nodes, while ECS systems steer and query those native objects.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Scene.initializeStaticResources();
 
   final scene = Scene();
+
+  final physics = RapierWorld(gravity: Vector3(0, -gravityStrength, 0));
+  scene.root.addComponent(physics);
+
+  final input = InputState();
+  final gameState = GameState();
+  final hudState = HudState(gameState);
+  final cameraRig = CameraRig();
+  final impact = ImpactMotion();
+
   final game = Game(scene: scene)
+    ..addPlugin(PhysicsPlugin(physics))
     ..addPlugin(const WorldPlugin())
-    ..addPlugin(const DemoPlugin());
+    ..addPlugin(const PlayerPlugin())
+    ..addPlugin(const RocksPlugin())
+    ..addPlugin(const RulesPlugin());
+  game.world.resources
+    ..insert<InputState>(input)
+    ..insert<GameState>(gameState)
+    ..insert<CameraRig>(cameraRig)
+    ..insert<ImpactMotion>(impact);
+
   await game.start();
 
   runApp(
-    MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: SceneView(
-          scene,
-          cameraBuilder: _buildCamera,
-          onTick: game.onTick,
-        ),
-      ),
+    RockDodgeApp(
+      scene: scene,
+      game: game,
+      input: input,
+      gameState: gameState,
+      hudState: hudState,
+      cameraRig: cameraRig,
     ),
   );
 }
 
-Camera _buildCamera(Duration elapsed) {
-  return PerspectiveCamera(
-    position: Vector3(0, 4, -8),
-    target: Vector3(0, 0, 0),
-  );
+class RockDodgeApp extends StatefulWidget {
+  const RockDodgeApp({
+    super.key,
+    required this.scene,
+    required this.game,
+    required this.input,
+    required this.gameState,
+    required this.hudState,
+    required this.cameraRig,
+  });
+
+  final Scene scene;
+  final Game game;
+  final InputState input;
+  final GameState gameState;
+  final HudState hudState;
+  final CameraRig cameraRig;
+
+  @override
+  State<RockDodgeApp> createState() => _RockDodgeAppState();
+}
+
+class _RockDodgeAppState extends State<RockDodgeApp> {
+  final FocusNode _focus = FocusNode();
+  final Set<LogicalKeyboardKey> _pressed = <LogicalKeyboardKey>{};
+
+  bool _touchLeft = false;
+  bool _touchRight = false;
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent) {
+      _pressed.add(event.logicalKey);
+      if (event.logicalKey == LogicalKeyboardKey.keyR) {
+        widget.input.restartRequested = true;
+      }
+    } else if (event is KeyUpEvent) {
+      _pressed.remove(event.logicalKey);
+    }
+    _syncHorizontalInput();
+    return KeyEventResult.handled;
+  }
+
+  void _setTouchLeft(bool value) {
+    _touchLeft = value;
+    _syncHorizontalInput();
+  }
+
+  void _setTouchRight(bool value) {
+    _touchRight = value;
+    _syncHorizontalInput();
+  }
+
+  void _requestRestart() {
+    _touchLeft = false;
+    _touchRight = false;
+    widget.input
+      ..horizontal = 0
+      ..restartRequested = true;
+  }
+
+  void _syncHorizontalInput() {
+    final keyLeft =
+        _pressed.contains(LogicalKeyboardKey.arrowLeft) ||
+        _pressed.contains(LogicalKeyboardKey.keyA);
+    final keyRight =
+        _pressed.contains(LogicalKeyboardKey.arrowRight) ||
+        _pressed.contains(LogicalKeyboardKey.keyD);
+    final left = keyLeft || _touchLeft;
+    final right = keyRight || _touchRight;
+    widget.input.horizontal = (left ? 1.0 : 0.0) - (right ? 1.0 : 0.0);
+  }
+
+  void _onTick(Duration elapsed, double deltaSeconds) {
+    widget.game.onTick(elapsed, deltaSeconds);
+    widget.hudState.refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Focus(
+          focusNode: _focus,
+          autofocus: true,
+          onKeyEvent: _onKey,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              SceneView(
+                widget.scene,
+                cameraBuilder: (elapsed) =>
+                    buildGameCamera(elapsed, widget.cameraRig),
+                onTick: _onTick,
+              ),
+              GameHud(
+                hud: widget.hudState,
+                onLeftChanged: _setTouchLeft,
+                onRightChanged: _setTouchRight,
+                onRestart: _requestRestart,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

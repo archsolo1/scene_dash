@@ -8,7 +8,7 @@ publish_to: none
 resolution: workspace
 
 environment:
-  sdk: ^3.6.0
+  sdk: ^3.11.0
   flutter: ">=3.16.0"
 
 dependencies:
@@ -19,7 +19,7 @@ dependencies:
   # flutter_scene 0.18.x requires a recent Flutter master build (Flutter GPU /
   # Impeller) and `flutter run --enable-flutter-gpu`.
   flutter_scene: ^0.18.1
-  vector_math: ^2.1.0
+  vector_math: ^2.4.0
 
 dev_dependencies:
   flutter_test:

@@ -10,7 +10,7 @@ import 'package:vector_math/vector_math.dart' show Matrix4, Quaternion, Vector3;
 part 'main.g.dart';
 
 // Workload: a [gridSize] x [gridSize] grid of entity-bound cubes. Only
-// `spinFraction` of them animate, but the bridge syncs *every* bound node each
+// `spinFraction` of them animate, but the integration syncs *every* bound node each
 // frame (writes its transform + marks it dirty). If full-frame sync were a
 // bottleneck, build time would scale with the cube count and changed-only sync
 // would matter. The reporter below shows whether it does.
@@ -19,12 +19,12 @@ const spinFraction = 0.1; // 10% animate; 90% are static
 
 /// Control switch (`--dart-define=useEcs=false`): when false the same grid is
 /// added as **static scene nodes with no ECS binding or per-frame sync**, to
-/// isolate flutter_scene's own per-node cost from the bridge's sync.
+/// isolate flutter_scene's own per-node cost from the integration's sync.
 const useEcs = bool.fromEnvironment('useEcs', defaultValue: true);
 
 /// Rendering switch (`--dart-define=instanced=true`): render the whole grid as a
 /// single `InstancedMesh` instead of one node per cube. This is a pure
-/// flutter_scene + ECS pattern — the bridge is not involved and needs no
+/// flutter_scene + ECS pattern — the integration is not involved and needs no
 /// changes. (0.18.x note: the instanced backend is still "naive", so it does not
 /// yet cut draw calls; this exists to demonstrate the pattern and to re-measure
 /// once flutter_scene optimizes it.)
@@ -66,7 +66,7 @@ void _spawnStaticNodes(Scene scene) {
 
 // --- Instanced rendering: one InstancedMesh for the whole grid ---
 //
-// Pure flutter_scene + ECS, with no bridge involvement: the mesh is a resource,
+// Pure flutter_scene + ECS, with no integration involvement: the mesh is a resource,
 // each entity owns one instance slot, and a system writes the instances it
 // animates directly via the flutter_scene API. No `SceneNodeRef`, no sync.
 

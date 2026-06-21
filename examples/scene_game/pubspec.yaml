@@ -1,25 +1,26 @@
 name: scene_game
 description: >-
-  A small runnable Flutter app showing Scene-Dash driving flutter_scene: a ring
-  of cubes moved by an ECS system and synchronized to scene nodes through the
-  bridge. Requires the Flutter master channel + Flutter GPU
+  A small runnable Flutter game showing Scene-Dash driving flutter_scene with
+  Rapier 3D physics: dodge rocks rolling down a ramp using a kinematic character
+  controller. Requires the Flutter master channel + Flutter GPU
   (`flutter run --enable-flutter-gpu`).
 publish_to: none
 resolution: workspace
 
 environment:
-  sdk: ^3.6.0
+  sdk: ^3.11.0
   flutter: ">=3.16.0"
 
 dependencies:
   flutter:
     sdk: flutter
   flutter_scene: ^0.18.1
+  flutter_scene_rapier: ^0.2.1
   scene_dash:
     path: ../../packages/scene_dash
   scene_dash_flutter_scene:
     path: ../../packages/scene_dash_flutter_scene
-  vector_math: ^2.1.0
+  vector_math: ^2.4.0
 
 dev_dependencies:
   flutter_test:

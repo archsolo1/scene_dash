@@ -10,12 +10,14 @@ class GameHud extends StatelessWidget {
     required this.hud,
     required this.onLeftChanged,
     required this.onRightChanged,
+    required this.onShoot,
     required this.onRestart,
   });
 
   final HudState hud;
   final ValueChanged<bool> onLeftChanged;
   final ValueChanged<bool> onRightChanged;
+  final VoidCallback onShoot;
   final VoidCallback onRestart;
 
   @override
@@ -37,10 +39,18 @@ class GameHud extends StatelessWidget {
                 ),
               ),
             ),
+            Positioned(
+              top: 24,
+              right: 24,
+              child: IgnorePointer(
+                child: _shadowed('FPS: ${snapshot.fps}', fontSize: 18),
+              ),
+            ),
             if (!lost)
               _TouchControls(
                 onLeftChanged: onLeftChanged,
                 onRightChanged: onRightChanged,
+                onShoot: onShoot,
               ),
             if (lost) _GameOverPanel(snapshot: snapshot, onRestart: onRestart),
           ],
@@ -73,10 +83,12 @@ class _TouchControls extends StatelessWidget {
   const _TouchControls({
     required this.onLeftChanged,
     required this.onRightChanged,
+    required this.onShoot,
   });
 
   final ValueChanged<bool> onLeftChanged;
   final ValueChanged<bool> onRightChanged;
+  final VoidCallback onShoot;
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +103,11 @@ class _TouchControls extends StatelessWidget {
               icon: Icons.arrow_left_rounded,
               semanticLabel: 'Move left',
               onChanged: onLeftChanged,
+            ),
+            _TapButton(
+              icon: Icons.bolt_rounded,
+              semanticLabel: 'Fire burst',
+              onPressed: onShoot,
             ),
             _HoldButton(
               icon: Icons.arrow_right_rounded,
@@ -155,6 +172,65 @@ class _HoldButtonState extends State<_HoldButton> {
             ],
           ),
           child: Icon(widget.icon, color: Colors.white, size: 54),
+        ),
+      ),
+    );
+  }
+}
+
+class _TapButton extends StatefulWidget {
+  const _TapButton({
+    required this.icon,
+    required this.semanticLabel,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String semanticLabel;
+  final VoidCallback onPressed;
+
+  @override
+  State<_TapButton> createState() => _TapButtonState();
+}
+
+class _TapButtonState extends State<_TapButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: widget.semanticLabel,
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) {
+          _setPressed(true);
+          widget.onPressed();
+        },
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: _pressed ? Colors.white30 : Colors.black38,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white54, width: 1.5),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black45,
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(widget.icon, color: Colors.white, size: 40),
         ),
       ),
     );

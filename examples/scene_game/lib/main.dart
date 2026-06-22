@@ -11,6 +11,7 @@ import 'game/config.dart';
 import 'game/game_state.dart';
 import 'hud/game_hud.dart';
 import 'player/player.dart';
+import 'projectiles/projectiles.dart';
 import 'rocks/rocks.dart';
 import 'rules/rules.dart';
 import 'world/world.dart';
@@ -41,6 +42,7 @@ Future<void> main() async {
     ..addPlugin(PhysicsPlugin(physics))
     ..addPlugin(const WorldPlugin())
     ..addPlugin(const PlayerPlugin())
+    ..addPlugin(const ProjectilesPlugin())
     ..addPlugin(const RocksPlugin())
     ..addPlugin(const RulesPlugin())
     ..insertResource<InputState>(input)
@@ -101,6 +103,8 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
       _pressed.add(event.logicalKey);
       if (event.logicalKey == LogicalKeyboardKey.keyR) {
         widget.input.restartRequested = true;
+      } else if (event.logicalKey == LogicalKeyboardKey.space) {
+        widget.input.shootRequested = true;
       }
     } else if (event is KeyUpEvent) {
       _pressed.remove(event.logicalKey);
@@ -127,6 +131,10 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
       ..restartRequested = true;
   }
 
+  void _requestShoot() {
+    widget.input.shootRequested = true;
+  }
+
   void _syncHorizontalInput() {
     final keyLeft =
         _pressed.contains(LogicalKeyboardKey.arrowLeft) ||
@@ -141,7 +149,7 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
 
   void _onTick(Duration elapsed, double deltaSeconds) {
     widget.game.onTick(elapsed, deltaSeconds);
-    widget.hudState.refresh();
+    widget.hudState.recordFrame(deltaSeconds);
   }
 
   @override
@@ -166,6 +174,7 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
                 hud: widget.hudState,
                 onLeftChanged: _setTouchLeft,
                 onRightChanged: _setTouchRight,
+                onShoot: _requestShoot,
                 onRestart: _requestRestart,
               ),
             ],

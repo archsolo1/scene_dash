@@ -35,11 +35,22 @@ const double rockSpawnZ = -15;
 const double rockSpawnY = 9;
 const double rockSpawnHalfWidth = 6;
 
-/// Seconds between rock spawns.
-const double rockSpawnInterval = 0.48;
+/// Starting seconds between rock spawns. The run ramps toward
+/// [rockSpawnIntervalMin] so the game stays playable before becoming a small
+/// physics/render stress test.
+const double rockSpawnIntervalStart = 0.36;
+
+/// Fastest rock spawn cadence once the run has warmed up.
+const double rockSpawnIntervalMin = 0.15;
+
+/// Seconds needed to reach the stress-test spawn cadence.
+const double rockSpawnRampSeconds = 18;
 
 /// Chance that a spawned rock is the faster flaming variant.
-const double flamingRockChance = 0.25;
+const double flamingRockChanceStart = 0.18;
+
+/// Flaming rocks get more common as the spawn cadence ramps up.
+const double flamingRockChanceMax = 0.38;
 
 /// Extra downhill launch speed for flaming rocks, along the ramp's +Z descent.
 const double flamingRockForwardVelocity = 15;
@@ -50,6 +61,22 @@ const double flamingRockSpinVelocity = 8;
 /// Rocks that fall below this Y are despawned (off the platform, into the void).
 const double rockKillY = -25;
 
+double stressRamp(double survived) {
+  return (survived / rockSpawnRampSeconds).clamp(0, 1).toDouble();
+}
+
+double rockSpawnIntervalForSurvival(double survived) {
+  final ramp = stressRamp(survived);
+  return rockSpawnIntervalStart +
+      (rockSpawnIntervalMin - rockSpawnIntervalStart) * ramp;
+}
+
+double flamingRockChanceForSurvival(double survived) {
+  final ramp = stressRamp(survived);
+  return flamingRockChanceStart +
+      (flamingRockChanceMax - flamingRockChanceStart) * ramp;
+}
+
 // --- Player (kinematic character controller) ---
 
 const double playerRadius = 0.6;
@@ -58,6 +85,26 @@ final double playerStartY = playerGroundYAtZ(playerStartZ);
 
 /// Sideways dodge speed across the ramp (X), in m/s.
 const double playerStrafeSpeed = 8;
+
+// --- Blaster ---
+
+/// Shots per burst. A burst can save the player, but cannot hold the lane
+/// forever.
+const int blasterBurstShots = 3;
+
+/// Seconds between shots inside one burst.
+const double blasterBurstInterval = 0.11;
+
+/// Seconds after a burst before another can start.
+const double blasterCooldown = 1.25;
+
+const double projectileRadius = 0.18;
+const double projectileSpeed = 22;
+const double projectileLaunchUp = 3.2;
+const double projectileLifetime = 0.8;
+const double projectileHitRadius = 1.05;
+const double projectileKnockback = 13;
+const double projectileLift = 4;
 
 // --- Lose conditions ---
 

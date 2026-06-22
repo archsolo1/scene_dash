@@ -8,11 +8,12 @@ final class RockSpawner {
   RockSpawner({int? seed}) : random = math.Random(seed);
 
   /// Advances the timer; returns the number of rocks due this step.
-  int tick(double dt) {
+  int tick(double dt, {required double survived}) {
     _accumulator += dt;
     var due = 0;
-    while (_accumulator >= rockSpawnInterval) {
-      _accumulator -= rockSpawnInterval;
+    final interval = rockSpawnIntervalForSurvival(survived);
+    while (_accumulator >= interval) {
+      _accumulator -= interval;
       due++;
     }
     return due;
@@ -21,7 +22,9 @@ final class RockSpawner {
   /// A random X within the ramp's spawn band.
   double nextLane() => (random.nextDouble() * 2 - 1) * rockSpawnHalfWidth;
 
-  bool nextIsFlaming() => random.nextDouble() < flamingRockChance;
+  bool nextIsFlaming(double survived) {
+    return random.nextDouble() < flamingRockChanceForSurvival(survived);
+  }
 
   void reset() => _accumulator = 0;
 }

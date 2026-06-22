@@ -12,10 +12,13 @@ final class SpawnRocksSystem extends GameSystem {
     @Resource() FixedTime time,
   ) {
     if (game.status != GameStatus.playing) return;
-    final due = spawner.tick(time.delta);
+    final due = spawner.tick(time.delta, survived: game.survived);
     for (var i = 0; i < due; i++) {
       commands.spawn(
-        RockBundle(x: spawner.nextLane(), flaming: spawner.nextIsFlaming()),
+        RockBundle(
+          x: spawner.nextLane(),
+          flaming: spawner.nextIsFlaming(game.survived),
+        ),
       );
     }
   }

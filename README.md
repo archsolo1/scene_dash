@@ -25,6 +25,7 @@ lib/
 ```
 
 It demonstrates components, bundles, systems, plugins, resources, scheduling, physics integration, scene lifecycle, and Flutter UI working together in a complete example.
+_________________________________________________________________________________________________________________________________________________________
 
 ```dart
 final game = Game(scene: scene)

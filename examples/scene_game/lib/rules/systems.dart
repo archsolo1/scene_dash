@@ -1,25 +1,22 @@
 part of 'rules.dart';
 
-/// Evaluates the two lose conditions each frame, as a top-level `@System`
+/// Evaluates the lose condition and rock contacts each frame, as a top-level
+/// `@System`
 /// function with an injected `Single<SceneNodeRef>` player (generates an
 /// `evaluateGameRulesSystem` descriptor).
 ///
 /// Fell off: a downward raycast finds no fixed platform within
-/// [groundProbeDistance]. Hit by a rock: any rock is within the combined radii
-/// of the player.
-///
-/// On a hit it switches the player's native rigid body (reached through
-/// `SceneNodeRef`) to kinematic, so the query declares `writes: [SceneNodeRef]`:
-/// mutating an object reached through a component reference counts as writing
-/// that component for scheduler diagnostics.
+/// [groundProbeDistance]. Hit by a rock: request player-owned knockback instead
+/// of ending the run immediately.
 @System()
 void evaluateGameRules(
-  @Query(requires: [Player], writes: [SceneNodeRef])
-  Single<SceneNodeRef> player,
+  @Query(requires: [Player]) Single<SceneNodeRef> player,
   @Resource() PhysicsWorld world,
   @Resource() GameState game,
   @Resource() FrameTime time,
-  @Resource() ImpactMotion impact,
+  @Resource() PlayerKnockback knockback,
+  @Resource() ShieldState shield,
+  @Resource() ShieldDeflectVfx deflectVfx,
 ) {
   if (game.status != GameStatus.playing) return;
 
@@ -38,7 +35,7 @@ void evaluateGameRules(
       includeKinematic: false,
       includeDynamic: false,
     );
-    if (ground == null) {
+    if (ground == null && pos.y <= playerFallLoseY) {
       game.lose('You fell off the platform');
       return;
     }
@@ -46,13 +43,17 @@ void evaluateGameRules(
 
   final hits = world.overlapSphere(
     pos,
-    playerRadius + hitPadding,
+    playerCollisionRadius + hitPadding,
     layerMask: PhysicsLayers.rock,
     includeFixed: false,
     includeKinematic: false,
     includeDynamic: true,
     includeTriggers: false,
   );
+  // Capture the shield state once for the whole resolution pass: if it was up
+  // when contacts were evaluated, it protects against every rock this frame,
+  // even once deflecting one drains the timer to zero.
+  final shielded = shield.active;
   for (final hit in hits) {
     // overlapSphere's layerMask is not yet honored by flutter_scene_rapier, so
     // classify rocks on the result side by collider layer - a handful of hits,
@@ -62,60 +63,72 @@ void evaluateGameRules(
         collider.collisionLayer & PhysicsLayers.rock == 0) {
       continue;
     }
-    _startImpact(node, pos, hit.node.globalTransform.getTranslation(), impact);
-    game.lose('A rock got you');
+    final rockPos = hit.node.globalTransform.getTranslation();
+    if (shielded) {
+      _deflectRock(hit.node, pos, rockPos, deflectVfx);
+      shield.absorbHit();
+      continue;
+    }
+    knockback.pushFromRock(playerPosition: pos, rockPosition: rockPos);
     return;
   }
 }
 
-void _startImpact(
-  Node player,
+/// Throws a rock up and away from the player, with a stable direction even when
+/// the centres overlap. Bounded by the deflection constants in config.
+void _deflectRock(
+  Node rockNode,
   Vector3 playerPos,
   Vector3 rockPos,
-  ImpactMotion impact,
+  ShieldDeflectVfx vfx,
 ) {
-  final body = player.getComponent<RapierRigidBody>();
+  var dx = rockPos.x - playerPos.x;
+  var dz = rockPos.z - playerPos.z;
+  var len = math.sqrt(dx * dx + dz * dz);
+  if (len < 1e-4) {
+    // Centres overlap: push uphill (-Z) by default rather than dividing by zero.
+    dx = 0;
+    dz = -1;
+    len = 1;
+  }
+  final nx = dx / len;
+  final nz = dz / len;
+  final body = rockNode.getComponent<RapierRigidBody>();
   if (body != null) {
     body
-      ..type = BodyType.kinematic
-      ..linearVelocity = Vector3.zero()
-      ..angularVelocity = Vector3.zero();
+      ..linearVelocity = Vector3(
+        nx * shieldDeflectOutward,
+        shieldDeflectUp,
+        nz * shieldDeflectOutward,
+      )
+      ..angularVelocity = Vector3(
+        shieldDeflectSpin,
+        0,
+        nx.sign * shieldDeflectSpin,
+      );
   }
-  impact.start(playerPosition: playerPos, rockPosition: rockPos);
+  vfx.emit(rockPos);
 }
 
-/// Keeps camera state current and runs the visible post-hit tumble.
-///
-/// During the tumble it overwrites the player node's local transform (reached
-/// through `SceneNodeRef`), so the query declares `writes: [SceneNodeRef]`. It
-/// runs `after: [evaluateGameRulesSystem]` (see [RulesPlugin]) because that
-/// system activates the [ImpactMotion] this one reads in the same `update` phase.
+/// Keeps camera state current after movement and rule evaluation.
 @System()
 final class PlayerViewSystem extends GameSystem {
   const PlayerViewSystem();
 
   void run(
-    @Query(requires: [Player], writes: [SceneNodeRef])
-    Single<SceneNodeRef> player,
+    @Query(requires: [Player]) Single<SceneNodeRef> player,
     @Resource() CameraRig camera,
-    @Resource() ImpactMotion impact,
     @Resource() FrameTime time,
   ) {
     final node = player.value.node;
     final pos = node.globalTransform.getTranslation();
-
-    if (impact.active) {
-      impact.advance(time.delta);
-      node.localTransform = impact.transform();
-      camera.follow(impact.position, time.delta);
-      return;
-    }
-
     camera.follow(pos, time.delta);
   }
 }
 
-/// Restarts after a loss by clearing rocks and restoring the player body.
+/// Restarts after a loss: clears rocks, projectiles and pickups, restores the
+/// player body, and resets all feature state (blaster, shield, spawners, VFX and
+/// fire input) so a new run starts clean.
 @System()
 final class RestartSystem extends GameSystem {
   const RestartSystem();
@@ -123,12 +136,22 @@ final class RestartSystem extends GameSystem {
   void run(
     @Query(requires: [Player], writes: [SceneNodeRef])
     Single<SceneNodeRef> player,
+    @Query(requires: [Player], writes: [PlayerVisuals])
+    Single<PlayerVisuals> playerVisuals,
     @Query(requires: [Rock]) Query1<SceneNodeRef> rocks,
+    @Query(requires: [Projectile]) Query1<SceneNodeRef> projectiles,
+    @Query(requires: [Collectable]) Query1<SceneNodeRef> pickups,
     @Resource() InputState input,
     @Resource() GameState game,
     @Resource() RockSpawner spawner,
     @Resource() CameraRig camera,
-    @Resource() ImpactMotion impact,
+    @Resource() PlayerKnockback knockback,
+    @Resource() Blaster blaster,
+    @Resource() ImpactVfx impactVfx,
+    @Resource() LockOnReticle reticle,
+    @Resource() ShieldState shield,
+    @Resource() CollectableSpawner pickupSpawner,
+    @Resource() ShieldDeflectVfx deflectVfx,
     Commands commands,
   ) {
     if (!input.restartRequested) return;
@@ -136,6 +159,9 @@ final class RestartSystem extends GameSystem {
     if (game.status != GameStatus.lost) return;
 
     rocks.each((entity, binding) => commands.despawn(entity));
+    projectiles.each((entity, binding) => commands.despawn(entity));
+    pickups.each((entity, binding) => commands.despawn(entity));
+
     // Restoring the player resets its native body and transform (reached
     // through SceneNodeRef), hence `writes: [SceneNodeRef]` above.
     final node = player.value.node;
@@ -150,8 +176,18 @@ final class RestartSystem extends GameSystem {
       Vector3(0, playerStartY, playerStartZ),
     );
     camera.reset();
-    impact.reset();
+    knockback.reset();
     spawner.reset();
+    blaster.reset();
+    impactVfx.reset();
+    reticle.reset();
+    shield.reset();
+    pickupSpawner.reset();
+    deflectVfx.reset();
+    input.clearFireTransitions();
+    playerVisuals.value.resetLegs();
     game.reset();
+    // Player charge/shield visuals self-clear: their systems ease the orb and
+    // bubble out once the blaster is reset and the shield is inactive.
   }
 }

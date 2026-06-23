@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scene_game/game/game_state.dart';
 
-/// Pure-logic coverage for the run's loss/reset state machine — no scene or GPU.
+/// Pure-logic coverage for the run's loss/reset state machine - no scene or GPU.
 void main() {
   test('a fresh game starts playing with a clean timer', () {
     final game = GameState();
@@ -19,18 +19,22 @@ void main() {
   });
 
   test('lose transitions once and keeps the first reason', () {
-    final game = GameState()..lose('A rock got you');
+    final game = GameState()..lose('You fell off the platform');
     expect(game.status, GameStatus.lost);
-    expect(game.lostReason, 'A rock got you');
+    expect(game.lostReason, 'You fell off the platform');
 
-    game.lose('You fell off the platform');
-    expect(game.lostReason, 'A rock got you', reason: 'first loss wins');
+    game.lose('A later loss reason');
+    expect(
+      game.lostReason,
+      'You fell off the platform',
+      reason: 'first loss wins',
+    );
   });
 
   test('reset returns the game to a clean playing state', () {
     final game = GameState()
       ..addSurvival(5)
-      ..lose('A rock got you')
+      ..lose('You fell off the platform')
       ..reset();
     expect(game.status, GameStatus.playing);
     expect(game.survived, 0);

@@ -43,6 +43,50 @@ final class CleanupRocksSystem extends GameSystem {
   }
 }
 
+/// Update: animate the per-rock flash shell for rocks with an active hit
+/// reaction, then drop the reaction component when the flash finishes.
+///
+/// The native body bounce/spin (applied by the projectile hit) is the physical
+/// reaction; this child shell is the visual one — the physics-driven root node
+/// is never scaled. The shell grows from nothing to a strength-scaled peak and
+/// collapses back, with a couple of pulses on the way. It mutates the shell
+/// node's own transform matrix in place (re-assigning to trip the dirty flag),
+/// so it allocates nothing per frame.
+@System()
+void updateRockHitReactions(
+  @Query(requires: [Rock], writes: [RockHitReaction, RockVisuals])
+  Query2<RockHitReaction, RockVisuals> reactions,
+  @Resource() FrameTime time,
+  Commands commands,
+) {
+  final dt = time.delta;
+  reactions.each((entity, reaction, visuals) {
+    reaction.remaining -= dt;
+    final shell = visuals.shell;
+    if (reaction.remaining <= 0) {
+      _setShellScale(shell, 0);
+      commands.remove<RockHitReaction>(entity);
+      return;
+    }
+    final t = (1 - reaction.remaining / rockHitReactionDuration).clamp(0.0, 1.0);
+    // Grow-then-collapse envelope (0 -> 1 -> 0) so the shell appears and clears
+    // cleanly; a few ripples and a strength-scaled peak read the hit's force.
+    final env = math.sin(t * math.pi);
+    final pulse = 1 + 0.1 * math.sin(t * math.pi * 4);
+    final peak = 1.15 + 0.55 * reaction.strength;
+    _setShellScale(shell, peak * env * pulse);
+  });
+}
+
+/// Writes a uniform [scale] onto [shell] by mutating its own transform matrix in
+/// place and re-assigning it (to trip the node's dirty flag) — no allocation.
+void _setShellScale(Node shell, double scale) {
+  final m = shell.localTransform
+    ..setIdentity()
+    ..scaleByDouble(scale, scale, scale, 1);
+  shell.localTransform = m;
+}
+
 /// Startup: build the shared flame-trail pool and add its node to the scene.
 @System()
 void spawnRockTrails(@Resource() Scene scene, @Resource() RockTrails trails) {

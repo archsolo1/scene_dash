@@ -76,6 +76,47 @@ final cleanupRocksSystem = SystemDescriptor(
   () => $CleanupRocksSystemAdapter(const CleanupRocksSystem()),
 );
 
+class $UpdateRockHitReactionsAdapter
+    implements SystemAdapter, SystemAccessProvider {
+  late final Query2<RockHitReaction, RockVisuals> _p0;
+  late final FrameTime _p1;
+  late final Commands _p2;
+
+  @override
+  void initialize(World world) {
+    world.ensureObjectStore<RockHitReaction>();
+    world.ensureObjectStore<RockVisuals>();
+    world.ensureTagStore<Rock>();
+    _p0 = world.query2<RockHitReaction, RockVisuals>(
+      withTypes: const <Type>[Rock],
+      withoutTypes: const <Type>[],
+    );
+    _p1 = world.resources.get<FrameTime>();
+    _p2 = world.commands;
+  }
+
+  @override
+  SystemAccess get access => const SystemAccess(
+    reads: <Type>{},
+    writes: <Type>{RockHitReaction, RockVisuals},
+  );
+
+  @override
+  void run() {
+    updateRockHitReactions(_p0, _p1, _p2);
+  }
+}
+
+/// Schedulable descriptor for [updateRockHitReactions]. Pass to `app.addSystem` and reference in
+/// `after`/`before`.
+final updateRockHitReactionsSystem = SystemDescriptor(
+  const SystemRef(
+    'package:scene_game/rocks/rocks.dart',
+    'updateRockHitReactions',
+  ),
+  () => $UpdateRockHitReactionsAdapter(),
+);
+
 class $SpawnRockTrailsAdapter implements SystemAdapter, SystemAccessProvider {
   late final Scene _p0;
   late final RockTrails _p1;
@@ -143,5 +184,6 @@ mixin _$RockBundle implements SceneDashBundle {
     world.ensureTagStore<Rock>().add(entity.index);
     world.ensureObjectStore<SceneNodeRef>().insert(entity.index, self.node);
     world.ensureTagStore<PhysicsDriven>().add(entity.index);
+    world.ensureObjectStore<RockVisuals>().insert(entity.index, self.visuals);
   }
 }

@@ -36,6 +36,7 @@ class $MovePlayerAdapter implements SystemAdapter, SystemAccessProvider {
   late final InputState _p1;
   late final GameState _p2;
   late final FixedTime _p3;
+  late final PlayerKnockback _p4;
 
   @override
   void initialize(World world) {
@@ -50,6 +51,7 @@ class $MovePlayerAdapter implements SystemAdapter, SystemAccessProvider {
     _p1 = world.resources.get<InputState>();
     _p2 = world.resources.get<GameState>();
     _p3 = world.resources.get<FixedTime>();
+    _p4 = world.resources.get<PlayerKnockback>();
   }
 
   @override
@@ -58,7 +60,7 @@ class $MovePlayerAdapter implements SystemAdapter, SystemAccessProvider {
 
   @override
   void run() {
-    movePlayer(_p0, _p1, _p2, _p3);
+    movePlayer(_p0, _p1, _p2, _p3, _p4);
   }
 }
 
@@ -69,6 +71,44 @@ final movePlayerSystem = SystemDescriptor(
   () => $MovePlayerAdapter(),
 );
 
+class $AnimateCrabLegsAdapter implements SystemAdapter, SystemAccessProvider {
+  late final Single<PlayerVisuals> _p0;
+  late final InputState _p1;
+  late final GameState _p2;
+  late final FrameTime _p3;
+
+  @override
+  void initialize(World world) {
+    world.ensureObjectStore<PlayerVisuals>();
+    world.ensureTagStore<Player>();
+    _p0 = Single<PlayerVisuals>(
+      world.query1<PlayerVisuals>(
+        withTypes: const <Type>[Player],
+        withoutTypes: const <Type>[],
+      ),
+    );
+    _p1 = world.resources.get<InputState>();
+    _p2 = world.resources.get<GameState>();
+    _p3 = world.resources.get<FrameTime>();
+  }
+
+  @override
+  SystemAccess get access =>
+      const SystemAccess(reads: <Type>{}, writes: <Type>{PlayerVisuals});
+
+  @override
+  void run() {
+    animateCrabLegs(_p0, _p1, _p2, _p3);
+  }
+}
+
+/// Schedulable descriptor for [animateCrabLegs]. Pass to `app.addSystem` and reference in
+/// `after`/`before`.
+final animateCrabLegsSystem = SystemDescriptor(
+  const SystemRef('package:scene_game/player/player.dart', 'animateCrabLegs'),
+  () => $AnimateCrabLegsAdapter(),
+);
+
 mixin _$PlayerBundle implements SceneDashBundle {
   @override
   void insertInto(World world, Entity entity) {
@@ -76,5 +116,6 @@ mixin _$PlayerBundle implements SceneDashBundle {
     world.ensureTagStore<Player>().add(entity.index);
     world.ensureObjectStore<SceneNodeRef>().insert(entity.index, self.node);
     world.ensureTagStore<PhysicsDriven>().add(entity.index);
+    world.ensureObjectStore<PlayerVisuals>().insert(entity.index, self.visuals);
   }
 }

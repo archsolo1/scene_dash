@@ -7,11 +7,12 @@ import 'package:flutter_scene_rapier/flutter_scene_rapier.dart';
 import 'package:scene_dash_flutter_scene/scene_dash_flutter_scene.dart';
 import 'package:vector_math/vector_math.dart' show Vector3;
 
+import 'collectables/collectables.dart';
 import 'decor/decor.dart';
 import 'game/camera.dart';
 import 'game/camera_rig.dart';
-import 'game/config.dart';
 import 'game/game_state.dart';
+import 'world/config.dart';
 import 'hud/game_hud.dart';
 import 'player/player.dart';
 import 'projectiles/projectiles.dart';
@@ -36,7 +37,11 @@ Future<void> main() async {
 
   final input = InputState();
   final gameState = GameState();
-  final hudState = HudState(gameState);
+  // Shared, single-source-of-truth resources constructed once and handed to both
+  // the owning plugin (which registers them) and the HUD (which reads them).
+  final blaster = Blaster();
+  final shield = ShieldState();
+  final hudState = HudState(gameState, blaster: blaster, shield: shield);
   final cameraRig = CameraRig();
 
   // Resources the Flutter widget also holds are constructed here and inserted
@@ -45,8 +50,9 @@ Future<void> main() async {
     ..addPlugin(PhysicsPlugin(physics))
     ..addPlugin(const WorldPlugin())
     ..addPlugin(const PlayerPlugin())
-    ..addPlugin(const ProjectilesPlugin())
+    ..addPlugin(ProjectilesPlugin(blaster: blaster))
     ..addPlugin(const RocksPlugin())
+    ..addPlugin(CollectablesPlugin(shield: shield))
     ..addPlugin(const RulesPlugin())
     ..addPlugin(const DecorPlugin())
     ..insertResource<InputState>(input)
@@ -93,6 +99,11 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
   bool _touchLeft = false;
   bool _touchRight = false;
 
+  // Fire is held when either source is held; the two are tracked independently
+  // so releasing one never cancels the other.
+  bool _spaceFire = false;
+  bool _touchFire = false;
+
   @override
   void dispose() {
     _focus.dispose();
@@ -100,24 +111,39 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
     // the shutdown schedule and detaches the scene driver (important for hot
     // restart, navigation and embedding); disposing HudState releases its
     // ValueNotifier listeners.
+    widget.input.cancelFire();
     widget.hudState.dispose();
     unawaited(widget.game.shutdown());
     super.dispose();
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    // KeyRepeatEvent is ignored: only the first KeyDownEvent starts a hold.
     if (event is KeyDownEvent) {
       _pressed.add(event.logicalKey);
       if (event.logicalKey == LogicalKeyboardKey.keyR) {
         widget.input.restartRequested = true;
-      } else if (event.logicalKey == LogicalKeyboardKey.space) {
-        widget.input.shootRequested = true;
+      } else if (event.logicalKey == LogicalKeyboardKey.space && !_spaceFire) {
+        _spaceFire = true;
+        _applyFire();
       }
     } else if (event is KeyUpEvent) {
       _pressed.remove(event.logicalKey);
+      if (event.logicalKey == LogicalKeyboardKey.space) {
+        _spaceFire = false;
+        _applyFire();
+      }
     }
     _syncHorizontalInput();
     return KeyEventResult.handled;
+  }
+
+  void _onFocusChange(bool hasFocus) {
+    if (hasFocus) return;
+    // Losing focus cancels charging so fire can never stay stuck held.
+    _spaceFire = false;
+    _touchFire = false;
+    _applyFire(canceled: true);
   }
 
   void _setTouchLeft(bool value) {
@@ -130,16 +156,39 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
     _syncHorizontalInput();
   }
 
+  void _setTouchFire(bool value) {
+    _touchFire = value;
+    _applyFire();
+  }
+
+  void _cancelTouchFire() {
+    _touchFire = false;
+    _applyFire(canceled: true);
+  }
+
   void _requestRestart() {
     _touchLeft = false;
     _touchRight = false;
+    _spaceFire = false;
+    _touchFire = false;
     widget.input
       ..horizontal = 0
+      ..cancelFire()
       ..restartRequested = true;
   }
 
-  void _requestShoot() {
-    widget.input.shootRequested = true;
+  /// Reconciles the combined held state into the [InputState] fire transitions.
+  void _applyFire({bool canceled = false}) {
+    final held = _spaceFire || _touchFire;
+    if (held && !widget.input.fireHeld) {
+      widget.input.pressFire();
+    } else if (!held && widget.input.fireHeld) {
+      if (canceled) {
+        widget.input.cancelFire();
+      } else {
+        widget.input.releaseFire();
+      }
+    }
   }
 
   void _syncHorizontalInput() {
@@ -168,6 +217,7 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
           focusNode: _focus,
           autofocus: true,
           onKeyEvent: _onKey,
+          onFocusChange: _onFocusChange,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -181,7 +231,8 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
                 hud: widget.hudState,
                 onLeftChanged: _setTouchLeft,
                 onRightChanged: _setTouchRight,
-                onShoot: _requestShoot,
+                onFireChanged: _setTouchFire,
+                onFireCanceled: _cancelTouchFire,
                 onRestart: _requestRestart,
               ),
             ],

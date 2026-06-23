@@ -1,17 +1,23 @@
+import 'dart:math' as math;
+
 import 'package:flutter_scene/scene.dart';
 import 'package:flutter_scene_rapier/flutter_scene_rapier.dart';
 import 'package:scene_dash/scene_dash.dart';
 import 'package:scene_dash_flutter_scene/scene_dash_flutter_scene.dart';
 import 'package:vector_math/vector_math.dart' show Matrix4, Ray, Vector3;
 
+import '../collectables/collectables.dart';
+import '../collectables/config.dart';
 import '../game/camera_rig.dart';
-import '../game/config.dart';
 import '../game/game_state.dart';
+import '../game/physics_layers.dart';
+import '../player/config.dart';
 import '../player/player.dart';
+import '../projectiles/projectiles.dart';
 import '../rocks/rocks.dart';
+import 'config.dart';
 
 part 'rules.g.dart';
-part 'impact_motion.dart';
 part 'systems.dart';
 
 /// Installs the rules and restart systems. [GameState] is shared with the HUD.
@@ -22,15 +28,18 @@ final class RulesPlugin extends Plugin {
   @override
   void build(AppBuilder app) {
     app
-      // RulesPlugin owns ImpactMotion: only its systems use it, so it is created
-      // and registered here rather than in main().
-      ..insertResource<ImpactMotion>(ImpactMotion())
       ..addSystem(restartSystem, schedule: Schedules.frameStart)
-      ..addSystem(evaluateGameRulesSystem, schedule: Schedules.update)
-      // playerView reads the ImpactMotion that evaluateGameRules activates and
-      // both write the player node, so make the dependency explicit instead of
-      // relying on registration order. Referencing the descriptor means a rename
-      // is a compile error.
+      // The lose/deflect check must see this frame's collection and shield tick,
+      // so order it explicitly behind those collectables systems (cross-feature
+      // descriptors; a rename is a compile error).
+      ..addSystem(
+        evaluateGameRulesSystem,
+        schedule: Schedules.update,
+        after: [collectShieldPickupsSystem, updateShieldStateSystem],
+      )
+      // Keep camera follow after rule evaluation so the view observes the latest
+      // player state. Referencing the descriptor means a rename is a compile
+      // error.
       ..addSystem(
         playerViewSystem,
         schedule: Schedules.update,

@@ -3,7 +3,8 @@ import 'package:flutter_scene_rapier/flutter_scene_rapier.dart';
 import 'package:scene_dash/scene_dash.dart';
 import 'package:vector_math/vector_math.dart' show Matrix4, Vector3, Vector4;
 
-import '../game/config.dart';
+import '../game/physics_layers.dart';
+import 'config.dart';
 
 part 'world.g.dart';
 

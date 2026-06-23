@@ -6,7 +6,7 @@ import 'package:scene_dash/scene_dash.dart';
 import 'package:vector_math/vector_math.dart' show Vector4;
 
 import '../fx/instanced_pool.dart';
-import '../game/config.dart';
+import '../world/config.dart';
 
 part 'decor.g.dart';
 part 'resources.dart';

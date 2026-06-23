@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:scene_game/game/config.dart';
+import 'package:scene_game/game/physics_layers.dart';
 import 'package:scene_game/rocks/rocks.dart';
 
 /// Guards the rock physics-layer classification used by the lose-condition

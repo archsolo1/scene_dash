@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:vector_math/vector_math.dart' show Vector3;
 
-import 'config.dart';
+import '../world/config.dart';
 
 final class CameraRig {
   final Vector3 position = Vector3(0, 12, 24);

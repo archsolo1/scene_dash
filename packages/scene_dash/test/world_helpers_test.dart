@@ -56,5 +56,24 @@ void main() {
       expect(world.tryResource<Config>()?.value, 9);
       expect(world.resource<Config>().value, 9);
     });
+
+    test('ensure helpers create and reuse stores in registration order', () {
+      final ensuredPosition = world.ensureObjectStore<Position>();
+      final ensuredConfig = world.ensureObjectStore<Config>();
+      final tag = world.ensureTagStore<_WorldTag>();
+
+      expect(world.ensureObjectStore<Position>(), same(ensuredPosition));
+      expect(world.ensureObjectStore<Config>(), same(ensuredConfig));
+      expect(world.ensureTagStore<_WorldTag>(), same(tag));
+      expect(world.stores.all.toList(), <ComponentStore>[
+        ensuredPosition,
+        ensuredConfig,
+        tag,
+      ]);
+    });
   });
+}
+
+final class _WorldTag {
+  const _WorldTag();
 }

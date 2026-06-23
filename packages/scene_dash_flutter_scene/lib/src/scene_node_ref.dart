@@ -27,15 +27,16 @@ final class PhysicsDriven {
   const PhysicsDriven();
 }
 
-/// Integration-managed tag marking a [SceneNodeRef] entity whose node is mounted
-/// in the scene graph.
+/// Integration-managed tag marking a [SceneNodeRef] entity whose node is
+/// currently parented in the active scene graph.
 ///
 /// **This is integration state, not something game code authors.** The scene
-/// driver adds it when it mounts a bound node and removes it on unmount/despawn;
-/// bundles must never include it. Normal gameplay systems do not need it either:
-/// the integration guarantees nodes are mounted *before* the `update` phase runs
-/// (see [Game]), so a queried [SceneNodeRef] reached from an update system is
-/// already in the scene.
+/// driver adds it when a bound node is parented (whether the integration queued
+/// the parent operation or game code already parented the node) and removes it
+/// on unmount/despawn; bundles must never include it. Normal gameplay systems do
+/// not need it either: the integration guarantees nodes are mounted after each
+/// relevant command boundary, so a queried [SceneNodeRef] reached from ordinary
+/// frame systems is already in the scene.
 ///
 /// Filter on `Mounted` only for an advanced system that intentionally targets
 /// scene-mounted entities while running in an unusual lifecycle phase.

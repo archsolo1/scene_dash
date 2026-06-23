@@ -42,21 +42,11 @@ final class World {
   /// Returns the object store for component type [T], registering a fresh one
   /// if none exists yet. Idempotent. Generated adapters and bundle inserts call
   /// this so component types are registered on first use.
-  ObjectComponentStore<T> ensureObjectStore<T>() {
-    if (!stores.isRegistered(T)) {
-      stores.register<T>(ObjectComponentStore<T>());
-    }
-    return stores.object<T>();
-  }
+  ObjectComponentStore<T> ensureObjectStore<T>() => stores.ensureObject<T>();
 
   /// Returns the tag store for tag type [T], registering a fresh one if none
   /// exists yet. Idempotent.
-  TagStore ensureTagStore<T>() {
-    if (!stores.isRegistered(T)) {
-      stores.register<T>(TagStore());
-    }
-    return stores.tag<T>();
-  }
+  TagStore ensureTagStore<T>() => stores.ensureTag<T>();
 
   /// Registers an event channel for event type [T] if one does not yet exist.
   void registerEvent<T>() {
@@ -157,10 +147,7 @@ final class World {
       _activeQueries == 0,
       'Structural mutation (despawn) while a query is iterating.',
     );
-    assert(
-      entities.isAlive(entity),
-      'Cannot despawn stale entity $entity.',
-    );
+    assert(entities.isAlive(entity), 'Cannot despawn stale entity $entity.');
     if (!entities.isAlive(entity)) return;
     final index = entity.index;
     for (final store in stores.all) {

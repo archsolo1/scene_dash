@@ -19,9 +19,11 @@ void main() {
     test('replacing keeps a single dense row', () {
       final store = ObjectComponentStore<Name>();
       store.insert(2, const Name('a'));
+      final afterInsert = store.revision;
       store.insert(2, const Name('b'));
       expect(store.length, 1);
       expect(store.valueOf(2)?.value, 'b');
+      expect(store.revision, afterInsert + 1);
     });
 
     test('swap removal keeps remaining entities addressable', () {
@@ -61,8 +63,24 @@ void main() {
     test('removing a non-present entity is a no-op', () {
       final store = ObjectComponentStore<Name>();
       store.insert(1, const Name('one'));
+      final revision = store.revision;
       store.removeEntityIndex(42);
       expect(store.length, 1);
+      expect(store.revision, revision);
+    });
+
+    test('revision tracks inserts, replacements, and removals', () {
+      final store = ObjectComponentStore<Name>();
+      expect(store.revision, 0);
+
+      store.insert(1, const Name('one'));
+      expect(store.revision, 1);
+
+      store.insert(1, const Name('uno'));
+      expect(store.revision, 2);
+
+      store.removeEntityIndex(1);
+      expect(store.revision, 3);
     });
   });
 }

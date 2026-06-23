@@ -18,7 +18,8 @@ void main() {
     final node = Node();
     final world = _worldWithBinding(node);
 
-    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})..initialize(world);
+    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})
+      ..initialize(world);
 
     adapter.run();
     expect(node.parent, isNull, reason: 'queued, not yet flushed');
@@ -38,7 +39,10 @@ void main() {
 
     final node = Node();
     elsewhere.add(node); // custom parenting
-    final world = _worldWithBinding(node);
+    final world = World()
+      ..stores.register<SceneNodeRef>(ObjectComponentStore<SceneNodeRef>());
+    final entity = world.entities.spawn();
+    world.insertNow<SceneNodeRef>(entity, SceneNodeRef(node));
 
     SceneNodeMountAdapter(commands, <Node, Entity>{})
       ..initialize(world)
@@ -46,6 +50,7 @@ void main() {
 
     expect(commands.isEmpty, isTrue, reason: 'already parented');
     expect(node.parent, same(elsewhere));
+    expect(world.has<Mounted>(entity), isTrue);
   });
 
   test('detaches a mounted node when its entity is despawned', () {
@@ -57,7 +62,8 @@ void main() {
     final entity = world.entities.spawn();
     world.insertNow<SceneNodeRef>(entity, SceneNodeRef(node));
 
-    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})..initialize(world);
+    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})
+      ..initialize(world);
     adapter.run();
     commands.flush();
     expect(node.parent, same(root), reason: 'mounted on spawn');
@@ -78,7 +84,8 @@ void main() {
     final entity = world.entities.spawn();
     world.insertNow<SceneNodeRef>(entity, SceneNodeRef(node));
 
-    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})..initialize(world);
+    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})
+      ..initialize(world);
     adapter.run();
     commands.flush();
     expect(node.parent, same(root));
@@ -99,7 +106,8 @@ void main() {
     final entity = world.entities.spawn();
     world.insertNow<SceneNodeRef>(entity, SceneNodeRef(oldNode));
 
-    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})..initialize(world);
+    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})
+      ..initialize(world);
     adapter.run();
     commands.flush();
     expect(oldNode.parent, same(root));
@@ -121,7 +129,8 @@ void main() {
     final entity = world.entities.spawn();
     world.insertNow<SceneNodeRef>(entity, SceneNodeRef(node));
 
-    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})..initialize(world);
+    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})
+      ..initialize(world);
     expect(world.has<Mounted>(entity), isFalse);
 
     adapter.run();
@@ -141,7 +150,8 @@ void main() {
     final entity = world.entities.spawn();
     world.insertNow<SceneNodeRef>(entity, SceneNodeRef(node));
 
-    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})..initialize(world);
+    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})
+      ..initialize(world);
     adapter.run();
     expect(world.has<Mounted>(entity), isTrue);
 
@@ -158,7 +168,8 @@ void main() {
     final entity = world.entities.spawn();
     world.insertNow<SceneNodeRef>(entity, SceneNodeRef(Node()));
 
-    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})..initialize(world);
+    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})
+      ..initialize(world);
     adapter.run();
     commands.flush();
     expect(world.has<Mounted>(entity), isTrue);
@@ -223,7 +234,8 @@ void main() {
     final entity = world.entities.spawn();
     world.insertNow<SceneNodeRef>(entity, SceneNodeRef(node));
 
-    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})..initialize(world);
+    final adapter = SceneNodeMountAdapter(commands, <Node, Entity>{})
+      ..initialize(world);
     adapter.run();
     world.despawnNow(entity);
     adapter.run();

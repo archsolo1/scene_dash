@@ -15,35 +15,39 @@ final class PhysicsEventBridge {
   /// The physics world whose collisions are bridged.
   final PhysicsWorld world;
 
-  List<CollisionEvent> _buffer = <CollisionEvent>[];
+  List<CollisionEvent> _incoming = <CollisionEvent>[];
+  List<CollisionEvent> _draining = <CollisionEvent>[];
   StreamSubscription<CollisionEvent>? _subscription;
 
   PhysicsEventBridge(this.world);
 
   /// Number of events currently buffered.
-  int get pending => _buffer.length;
+  int get pending => _incoming.length;
 
   /// Starts listening to the physics world's collision stream.
   void start() {
     if (_subscription != null) return;
-    _subscription = world.collisions.listen(_buffer.add);
+    _subscription = world.collisions.listen(_incoming.add);
   }
 
   /// Sends all buffered events to [writer] and clears the buffer.
   void drainTo(EventWriter<CollisionEvent> writer) {
-    if (_buffer.isEmpty) return;
-    final pending = _buffer;
-    _buffer = <CollisionEvent>[];
-    for (var i = 0; i < pending.length; i++) {
-      writer.send(pending[i]);
+    if (_incoming.isEmpty) return;
+    final oldDraining = _draining;
+    _draining = _incoming;
+    _incoming = oldDraining;
+    for (var i = 0; i < _draining.length; i++) {
+      writer.send(_draining[i]);
     }
+    _draining.clear();
   }
 
   /// Cancels the collision-stream subscription.
   Future<void> dispose() async {
     final subscription = _subscription;
     _subscription = null;
-    _buffer.clear();
+    _incoming.clear();
+    _draining.clear();
     await subscription?.cancel();
   }
 }

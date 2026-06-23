@@ -51,7 +51,8 @@ final class SystemProfiler {
   /// A single reused stopwatch; the schedule resets and reads it per system.
   final Stopwatch stopwatch = Stopwatch();
 
-  final Map<_TimingKey, SystemTiming> _timings = <_TimingKey, SystemTiming>{};
+  final Map<SystemLabel, Map<ScheduleLabel, SystemTiming>> _timings =
+      <SystemLabel, Map<ScheduleLabel, SystemTiming>>{};
 
   int _frame = 0;
 
@@ -63,12 +64,16 @@ final class SystemProfiler {
       _slowMicros == null ? null : Duration(microseconds: _slowMicros);
 
   /// All recorded (system, schedule) timings (live view; do not mutate).
-  Iterable<SystemTiming> get timings => _timings.values;
+  Iterable<SystemTiming> get timings sync* {
+    for (final bySchedule in _timings.values) {
+      yield* bySchedule.values;
+    }
+  }
 
   /// The timing record for [system] in [schedule], or null if that pair has not
   /// run yet.
   SystemTiming? timingOf(SystemLabel system, ScheduleLabel schedule) =>
-      _timings[_TimingKey(system, schedule)];
+      _timings[system]?[schedule];
 
   /// Advances the frame counter. Called once per frame by the integration.
   void beginFrame() => _frame++;
@@ -82,7 +87,8 @@ final class SystemProfiler {
   /// Records one run of [label] (in [schedule]) that took [micros] microseconds.
   /// Reuses the per-(system, schedule) [SystemTiming] record.
   void record(SystemLabel label, ScheduleLabel schedule, int micros) {
-    final timing = _timings[_TimingKey(label, schedule)] ??= SystemTiming(
+    final bySchedule = _timings[label] ??= <ScheduleLabel, SystemTiming>{};
+    final timing = bySchedule[schedule] ??= SystemTiming(
       label: label,
       debugName: _shortName(label.id),
       schedule: schedule,
@@ -109,22 +115,4 @@ final class SystemProfiler {
     final hash = id.lastIndexOf('#');
     return hash < 0 ? id : id.substring(hash + 1);
   }
-}
-
-/// Composite map key so the same system registered in two schedules keeps a
-/// distinct timing record per schedule.
-final class _TimingKey {
-  const _TimingKey(this.system, this.schedule);
-
-  final SystemLabel system;
-  final ScheduleLabel schedule;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _TimingKey &&
-      other.system == system &&
-      other.schedule == schedule;
-
-  @override
-  int get hashCode => Object.hash(system, schedule);
 }

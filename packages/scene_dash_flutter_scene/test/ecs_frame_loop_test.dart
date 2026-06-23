@@ -1,3 +1,4 @@
+import 'package:flutter_scene/scene.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scene_dash/scene_dash.dart';
 import 'package:scene_dash_flutter_scene/scene_dash_flutter_scene.dart';
@@ -106,4 +107,161 @@ void main() {
     loop.update(0.016);
     expect(log, <String>['mount', 'update', 'renderSync', 'flush']);
   });
+
+  test('onCommandBoundary fires after frameStart commands', () {
+    final log = <String>[];
+    final app = _appWithProbes(log);
+    final loop = EcsFrameLoop(app, onCommandBoundary: () => log.add('mount'))
+      ..ensureTimeResources();
+    app.start();
+
+    loop.frameStart(const Duration(milliseconds: 16), 0.016);
+    expect(log, <String>['frameStart', 'mount']);
+  });
+
+  test('mounts startup-spawned scene nodes before the first frame', () {
+    final root = Node();
+    final node = Node();
+    final app = App()
+      ..addSystemAdapter(
+        _SpawnNodeAdapter(node),
+        schedule: Schedules.startup,
+        label: const SystemLabel('spawn.startup.node'),
+      );
+    final commands = SceneCommands(root);
+    final mount = SceneNodeMountAdapter(commands, <Node, Entity>{});
+
+    app.start();
+    mount
+      ..initialize(app.world)
+      ..run();
+    commands.flush();
+
+    expect(node.parent, same(root));
+  });
+
+  test('mounts frameStart-spawned scene nodes at the frame boundary', () {
+    final root = Node();
+    final node = Node();
+    final app = App()
+      ..addSystemAdapter(
+        _SpawnNodeAdapter(node),
+        schedule: Schedules.frameStart,
+        label: const SystemLabel('spawn.frameStart.node'),
+      );
+    final commands = SceneCommands(root);
+    final mount = SceneNodeMountAdapter(commands, <Node, Entity>{});
+    final loop = EcsFrameLoop(
+      app,
+      onCommandBoundary: () {
+        mount.run();
+        commands.flush();
+      },
+    )..ensureTimeResources();
+
+    app.start();
+    mount.initialize(app.world);
+    loop.frameStart(const Duration(milliseconds: 16), 0.016);
+
+    expect(node.parent, same(root));
+  });
+
+  test('mounts fixedPrePhysics-spawned scene nodes before physics returns', () {
+    final root = Node();
+    final node = Node();
+    final app = App()
+      ..addSystemAdapter(
+        _SpawnNodeAdapter(node),
+        schedule: Schedules.fixedPrePhysics,
+        label: const SystemLabel('spawn.fixed.node'),
+      );
+    final commands = SceneCommands(root);
+    final mount = SceneNodeMountAdapter(commands, <Node, Entity>{});
+    final loop = EcsFrameLoop(
+      app,
+      onCommandBoundary: () {
+        mount.run();
+        commands.flush();
+      },
+    )..ensureTimeResources();
+
+    app.start();
+    mount.initialize(app.world);
+    loop.fixedStep(1 / 60);
+
+    expect(node.parent, same(root));
+  });
+
+  test('mounts update-spawned scene nodes before renderSync', () {
+    final root = Node();
+    final node = Node();
+    final app = App()
+      ..addSystemAdapter(
+        _SpawnNodeAdapter(node),
+        schedule: Schedules.update,
+        label: const SystemLabel('spawn.update.node'),
+      )
+      ..addSystemAdapter(
+        _ExpectParentAdapter(node, root),
+        schedule: Schedules.renderSync,
+        label: const SystemLabel('expect.renderSync.node'),
+      );
+    final commands = SceneCommands(root);
+    final mount = SceneNodeMountAdapter(commands, <Node, Entity>{});
+    final loop = EcsFrameLoop(
+      app,
+      onCommandBoundary: () {
+        mount.run();
+        commands.flush();
+      },
+    )..ensureTimeResources();
+
+    app.start();
+    mount.initialize(app.world);
+    loop.update(0.016);
+  });
+}
+
+final class _SpawnNodeAdapter implements SystemAdapter {
+  _SpawnNodeAdapter(this.node);
+
+  final Node node;
+  late World _world;
+
+  @override
+  void initialize(World world) {
+    _world = world;
+  }
+
+  @override
+  void run() {
+    _world.commands.spawn(_NodeBundle(node));
+  }
+}
+
+final class _ExpectParentAdapter implements SystemAdapter {
+  _ExpectParentAdapter(this.node, this.expectedParent);
+
+  final Node node;
+  final Node expectedParent;
+
+  @override
+  void initialize(World world) {}
+
+  @override
+  void run() {
+    expect(node.parent, same(expectedParent));
+  }
+}
+
+final class _NodeBundle implements SceneDashBundle {
+  const _NodeBundle(this.node);
+
+  final Node node;
+
+  @override
+  void insertInto(World world, Entity entity) {
+    world.ensureObjectStore<SceneNodeRef>();
+    world.insertNow<SceneNodeRef>(entity, SceneNodeRef(node));
+  }
 }

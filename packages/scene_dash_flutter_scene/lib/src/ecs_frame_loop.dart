@@ -15,11 +15,19 @@ final class EcsFrameLoop {
   /// gameplay `update` system sees already-mounted nodes.
   final void Function()? onBeforeUpdate;
 
+  /// Called after a schedule has run and flushed ECS commands.
+  final void Function()? onCommandBoundary;
+
   /// Called at the end of [update] (after `renderSync`, before the scene
   /// renders) — a safe boundary to flush deferred scene-graph mutations.
   final void Function()? onFrameEnd;
 
-  EcsFrameLoop(this.app, {this.onBeforeUpdate, this.onFrameEnd});
+  EcsFrameLoop(
+    this.app, {
+    this.onBeforeUpdate,
+    this.onCommandBoundary,
+    this.onFrameEnd,
+  });
 
   /// Inserts default [FrameTime]/[FixedTime] resources if a plugin has not
   /// already provided them. Call before [App.start].
@@ -40,6 +48,7 @@ final class EcsFrameLoop {
       ..elapsed = elapsed
       ..frame += 1;
     app.runSchedule(Schedules.frameStart);
+    onCommandBoundary?.call();
     app.updateEvents();
   }
 
@@ -50,6 +59,7 @@ final class EcsFrameLoop {
       ..delta = fixedDt
       ..tick += 1;
     app.runSchedule(Schedules.fixedPrePhysics);
+    onCommandBoundary?.call();
   }
 
   /// Per-frame update: mount newly bound nodes ([onBeforeUpdate]) so gameplay
@@ -59,6 +69,7 @@ final class EcsFrameLoop {
     app.world.resources.get<FrameTime>().delta = deltaSeconds;
     onBeforeUpdate?.call();
     app.runSchedule(Schedules.update);
+    onCommandBoundary?.call();
     app.runSchedule(Schedules.renderSync);
     onFrameEnd?.call();
   }

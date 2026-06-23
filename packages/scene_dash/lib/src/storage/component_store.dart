@@ -22,13 +22,21 @@ abstract base class ComponentStore {
   Uint32List _denseEntities;
   Uint32List _sparse;
   int _length = 0;
+  int _revision = 0;
 
   ComponentStore({int denseCapacity = 8, int sparseCapacity = 16})
-      : _denseEntities = Uint32List(denseCapacity),
-        _sparse = Uint32List(sparseCapacity);
+    : _denseEntities = Uint32List(denseCapacity),
+      _sparse = Uint32List(sparseCapacity);
 
   /// Number of entities currently stored.
   int get length => _length;
+
+  /// Structural/content revision for this store.
+  ///
+  /// Incremented when a component is inserted, replaced, or removed. Query and
+  /// integration code can cache this to skip work when the store has not
+  /// changed since its last pass.
+  int get revision => _revision;
 
   /// Whether [entityIndex] currently has this component.
   bool containsIndex(int entityIndex) => denseIndexOf(entityIndex) >= 0;
@@ -70,6 +78,12 @@ abstract base class ComponentStore {
     return dense;
   }
 
+  /// Marks this store as changed.
+  @protected
+  void bumpRevision() {
+    _revision += 1;
+  }
+
   /// Removes [entityIndex] via swap removal. Returns the freed dense row, or
   /// `-1` if the entity was not stored.
   @protected
@@ -86,6 +100,7 @@ abstract base class ComponentStore {
     _sparse[entityIndex] = 0;
     _length = last;
     clearPayload(last);
+    bumpRevision();
     return dense;
   }
 

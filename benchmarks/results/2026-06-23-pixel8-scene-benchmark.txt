@@ -1,0 +1,35 @@
+Device: Pixel 8 (38180DLJH00074), Android 16 / API 36
+Mode: Flutter profile, Flutter GPU enabled, Impeller Vulkan
+Flutter: 3.45.0-1.0.pre-594 master
+Dart: 3.13.0-228.0.dev
+Benchmark app: examples/scene_benchmark
+Scene: 40x40 grid, 1,600 visible cubes
+Sampling: 60 warmup frames, 180 measured frames
+Date: 2026-06-23
+
+Command:
+flutter run --profile -d 38180DLJH00074 --enable-flutter-gpu --dart-define=benchmarkMode=static --dart-define=warmupFrames=60 --dart-define=sampleFrames=180
+
+Output:
+SCENE_BENCHMARK config mode=static gridSide=40 visible=1600 warmupFrames=60 sampleFrames=180
+SCENE_BENCHMARK result mode=static frames=180 build_median_ms=33.645 build_p95_ms=39.009 raster_median_ms=1.294 raster_p95_ms=1.655
+
+Repeated static command after the ECS/instanced runs:
+SCENE_BENCHMARK config mode=static gridSide=40 visible=1600 warmupFrames=60 sampleFrames=180
+SCENE_BENCHMARK result mode=static frames=180 build_median_ms=28.163 build_p95_ms=31.641 raster_median_ms=0.954 raster_p95_ms=1.357
+
+Command:
+flutter run --profile -d 38180DLJH00074 --enable-flutter-gpu --dart-define=benchmarkMode=ecs --dart-define=warmupFrames=60 --dart-define=sampleFrames=180
+
+Output:
+SCENE_BENCHMARK config mode=ecs gridSide=40 visible=1600 warmupFrames=60 sampleFrames=180
+SCENE_BENCHMARK result mode=ecs frames=180 build_median_ms=28.569 build_p95_ms=32.594 raster_median_ms=1.006 raster_p95_ms=1.298
+SCENE_BENCHMARK system mode=ecs schedule=startup system=benchmark.spawnGrid runs=1 latest_us=165 avg_us=165.000 max_us=165
+SCENE_BENCHMARK system mode=ecs schedule=renderSync system=scene.syncTransform runs=242 latest_us=329 avg_us=391.417 max_us=1557
+
+Command:
+flutter run --profile -d 38180DLJH00074 --enable-flutter-gpu --dart-define=benchmarkMode=instanced --dart-define=warmupFrames=60 --dart-define=sampleFrames=180
+
+Output:
+SCENE_BENCHMARK config mode=instanced gridSide=40 visible=1600 warmupFrames=60 sampleFrames=180
+SCENE_BENCHMARK result mode=instanced frames=180 build_median_ms=1.179 build_p95_ms=2.604 raster_median_ms=0.517 raster_p95_ms=0.746

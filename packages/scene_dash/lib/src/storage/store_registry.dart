@@ -9,10 +9,11 @@ import 'tag_store.dart';
 /// store for a component type.
 final class StoreRegistry {
   final Map<Type, ComponentStore> _stores = <Type, ComponentStore>{};
+  final List<ComponentStore> _all = <ComponentStore>[];
 
   /// All registered stores. Used by despawn to strip an entity from every
   /// store it might belong to.
-  Iterable<ComponentStore> get all => _stores.values;
+  Iterable<ComponentStore> get all => _all;
 
   /// Registers [store] as the store for component type [T]. Throws if a store
   /// for [T] is already registered.
@@ -21,6 +22,28 @@ final class StoreRegistry {
       throw StateError('A store for $T is already registered.');
     }
     _stores[T] = store;
+    _all.add(store);
+  }
+
+  /// Returns the object store for [T], creating it with one map lookup when
+  /// absent.
+  ObjectComponentStore<T> ensureObject<T>() {
+    final existing = _stores[T];
+    if (existing != null) return existing as ObjectComponentStore<T>;
+    final created = ObjectComponentStore<T>();
+    _stores[T] = created;
+    _all.add(created);
+    return created;
+  }
+
+  /// Returns the tag store for [T], creating it with one map lookup when absent.
+  TagStore ensureTag<T>() {
+    final existing = _stores[T];
+    if (existing != null) return existing as TagStore;
+    final created = TagStore();
+    _stores[T] = created;
+    _all.add(created);
+    return created;
   }
 
   /// Whether a store is registered for [type].

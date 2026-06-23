@@ -56,7 +56,7 @@ final class Game {
 
   late final EcsFrameLoop _loop = EcsFrameLoop(
     app,
-    onBeforeUpdate: _mountStep,
+    onCommandBoundary: _mountStep,
     onFrameEnd: sceneCommands.flush,
   );
 

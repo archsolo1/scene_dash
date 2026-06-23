@@ -83,6 +83,32 @@ void main() {
       },
     );
 
+    test('reuses one timing record for steady-state runs', () {
+      final app = App(diagnostics: const AppDiagnostics(profileSystems: true))
+        ..addSystemAdapter(
+          _NoopAdapter(),
+          schedule: Schedules.update,
+          label: const SystemLabel('pkg#stable'),
+        );
+      app.start();
+
+      app.runSchedule(Schedules.update);
+      final first = app.profiler!.timingOf(
+        const SystemLabel('pkg#stable'),
+        Schedules.update,
+      );
+
+      app.runSchedule(Schedules.update);
+      final second = app.profiler!.timingOf(
+        const SystemLabel('pkg#stable'),
+        Schedules.update,
+      );
+
+      expect(second, same(first));
+      expect(second!.runs, 2);
+      expect(app.profiler!.timings, hasLength(1));
+    });
+
     test('warns when a system exceeds the slow-system threshold', () {
       final slow = <SlowSystemEvent>[];
       final app =

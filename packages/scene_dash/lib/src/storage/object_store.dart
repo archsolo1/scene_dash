@@ -11,12 +11,13 @@ final class ObjectComponentStore<T> extends ComponentStore {
   List<T?> _values;
 
   ObjectComponentStore({super.denseCapacity = 8, super.sparseCapacity = 16})
-      : _values = List<T?>.filled(denseCapacity, null, growable: false);
+    : _values = List<T?>.filled(denseCapacity, null, growable: false);
 
   /// Inserts or replaces the component [value] for [entityIndex].
   void insert(int entityIndex, T value) {
     final dense = putSlot(entityIndex);
     _values[dense] = value;
+    bumpRevision();
   }
 
   @override

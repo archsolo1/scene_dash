@@ -36,10 +36,14 @@ final class SceneNodeMountAdapter implements SystemAdapter {
   final Map<Node, Entity> _index;
 
   late final World _world;
+  late final ObjectComponentStore<SceneNodeRef> _sceneNodeStore;
   late final Query1<SceneNodeRef> _bound;
 
   /// Nodes this adapter mounted, mapped to the entity they were mounted for.
-  final Map<Node, Entity> _mounted = <Node, Entity>{};
+  final Map<Node, Entity> _ownedMounted = <Node, Entity>{};
+
+  /// Every bound node seen during the last reconciliation pass.
+  final Map<Node, Entity> _knownBound = <Node, Entity>{};
 
   /// Scratch set of nodes seen this run (reused to avoid per-frame allocation).
   final Set<Node> _seen = <Node>{};
@@ -49,6 +53,8 @@ final class SceneNodeMountAdapter implements SystemAdapter {
   final List<Entity> _toTag = <Entity>[];
   final List<Entity> _toUntag = <Entity>[];
 
+  int _lastRevision = -1;
+
   SceneNodeMountAdapter(this._sceneCommands, this._index);
 
   @override
@@ -57,35 +63,53 @@ final class SceneNodeMountAdapter implements SystemAdapter {
     world
       ..ensureObjectStore<SceneNodeRef>()
       ..ensureTagStore<Mounted>();
+    _sceneNodeStore = world.stores.object<SceneNodeRef>();
     _bound = world.query1<SceneNodeRef>();
   }
 
   @override
   void run() {
+    final revision = _sceneNodeStore.revision;
+    if (revision == _lastRevision) return;
+    _lastRevision = revision;
+
     _seen.clear();
     _toTag.clear();
     _toUntag.clear();
     _bound.each((entity, binding) {
       final node = binding.node;
       _seen.add(node);
+      final previousEntity = _knownBound[node];
+      if (previousEntity != null && previousEntity != entity) {
+        _toUntag.add(previousEntity);
+      }
+      _knownBound[node] = entity;
       // Maintain the reverse node -> entity index for every bound node (not just
       // ones we mount), so picking can resolve any visible node to its entity.
       _index[node] = entity;
-      if (_mounted.containsKey(node)) return;
+      if (_ownedMounted.containsKey(node)) {
+        _ownedMounted[node] = entity;
+        _toTag.add(entity);
+        return;
+      }
       // Adopt only nodes that have no parent yet; a node the game parented
       // itself is left alone (and never tracked for auto-detach).
       if (node.parent == null) {
         _sceneCommands.add(node);
-        _mounted[node] = entity;
+        _ownedMounted[node] = entity;
+        _toTag.add(entity);
+      } else {
         _toTag.add(entity);
       }
     });
-    // Detach nodes we mounted whose binding disappeared (despawn, component
-    // removal, or replacement with a different node).
-    _mounted.removeWhere((node, entity) {
+    // Forget nodes whose binding disappeared. Only detach nodes this adapter
+    // adopted; game-parented nodes are untagged/index-pruned but left in place.
+    _knownBound.removeWhere((node, entity) {
       if (_seen.contains(node)) return false;
-      _sceneCommands.remove(node);
       _toUntag.add(entity);
+      if (_ownedMounted.remove(node) != null) {
+        _sceneCommands.remove(node);
+      }
       return true;
     });
     // Prune index entries whose node is no longer bound (despawn, component

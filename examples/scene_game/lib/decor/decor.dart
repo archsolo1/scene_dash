@@ -6,11 +6,11 @@ import 'package:scene_dash/scene_dash.dart';
 import 'package:vector_math/vector_math.dart' show Vector4;
 
 import '../fx/instanced_pool.dart';
-import '../world/config.dart';
+import '../world/data/config.dart';
 
 part 'decor.g.dart';
-part 'resources.dart';
-part 'systems.dart';
+part 'data/resources.dart';
+part 'systems/systems.dart';
 
 /// Ambient decoration: many drifting light motes drawn as one [InstancedPool]
 /// (one node, one draw call) instead of one entity/node per mote — the

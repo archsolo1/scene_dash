@@ -4,7 +4,7 @@ import 'package:scene_dash/scene_dash.dart';
 import 'package:vector_math/vector_math.dart' show Matrix4, Vector3, Vector4;
 
 import '../game/physics_layers.dart';
-import 'config.dart';
+import 'data/config.dart';
 
 part 'world.g.dart';
 

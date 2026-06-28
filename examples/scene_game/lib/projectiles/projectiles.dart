@@ -12,23 +12,23 @@ import '../fx/instanced_pool.dart';
 import '../game/camera_rig.dart';
 import '../game/game_state.dart';
 import '../game/physics_layers.dart';
-import '../player/config.dart';
+import '../player/data/config.dart';
 import '../player/player.dart';
-import '../rocks/config.dart';
+import '../rocks/data/config.dart';
 import '../rocks/rocks.dart';
-import '../world/config.dart';
-import 'config.dart';
-import 'reticle_widget.dart';
+import '../world/data/config.dart';
+import 'data/config.dart';
+import 'vfx/reticle_widget.dart';
 
-part 'components.dart';
+part 'data/components.dart';
 part 'projectiles.g.dart';
-part 'resources.dart';
-part 'bundles.dart';
-part 'vfx.dart';
-part 'systems.dart';
-part 'charge_vfx.dart';
-part 'impact_vfx.dart';
-part 'reticle.dart';
+part 'data/resources.dart';
+part 'data/bundles.dart';
+part 'vfx/vfx.dart';
+part 'systems/systems.dart';
+part 'vfx/charge_vfx.dart';
+part 'vfx/impact_vfx.dart';
+part 'vfx/reticle.dart';
 
 /// Installs the player's blaster: tap-to-burst, hold-to-charge, the charged
 /// projectile, charge VFX, pooled impact VFX and the lock-on reticle.

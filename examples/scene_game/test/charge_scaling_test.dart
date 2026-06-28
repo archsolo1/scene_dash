@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:scene_game/collectables/config.dart';
-import 'package:scene_game/player/config.dart';
-import 'package:scene_game/projectiles/config.dart';
+import 'package:scene_game/collectables/data/config.dart';
+import 'package:scene_game/player/data/config.dart';
+import 'package:scene_game/projectiles/data/config.dart';
 
 /// Pure-function coverage for the charge -> projectile/impact scaling helpers.
 void main() {

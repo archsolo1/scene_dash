@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:scene_game/rocks/config.dart';
+import 'package:scene_game/rocks/data/config.dart';
 import 'package:scene_game/rocks/rocks.dart';
 
 /// Pure-logic coverage for the deterministic, seeded rock spawner — no scene or

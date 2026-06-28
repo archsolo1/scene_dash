@@ -8,15 +8,15 @@ import 'package:vector_math/vector_math.dart' show Matrix4, Vector3, Vector4;
 
 import '../game/game_state.dart';
 import '../game/physics_layers.dart';
-import '../world/config.dart';
-import '../world/ramp.dart';
-import 'config.dart';
+import '../world/data/config.dart';
+import '../world/data/ramp.dart';
+import 'data/config.dart';
 
 part 'player.g.dart';
-part 'components.dart';
-part 'resources.dart';
-part 'bundles.dart';
-part 'systems.dart';
+part 'data/components.dart';
+part 'data/resources.dart';
+part 'data/bundles.dart';
+part 'systems/systems.dart';
 
 /// Installs the player feature.
 @GamePlugin()

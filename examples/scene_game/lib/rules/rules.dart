@@ -7,18 +7,18 @@ import 'package:scene_dash_flutter_scene/scene_dash_flutter_scene.dart';
 import 'package:vector_math/vector_math.dart' show Matrix4, Ray, Vector3;
 
 import '../collectables/collectables.dart';
-import '../collectables/config.dart';
+import '../collectables/data/config.dart';
 import '../game/camera_rig.dart';
 import '../game/game_state.dart';
 import '../game/physics_layers.dart';
-import '../player/config.dart';
+import '../player/data/config.dart';
 import '../player/player.dart';
 import '../projectiles/projectiles.dart';
 import '../rocks/rocks.dart';
-import 'config.dart';
+import 'data/config.dart';
 
 part 'rules.g.dart';
-part 'systems.dart';
+part 'systems/systems.dart';
 
 /// Installs the rules and restart systems. [GameState] is shared with the HUD.
 @GamePlugin()

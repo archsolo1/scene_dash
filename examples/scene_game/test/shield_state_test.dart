@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scene_game/collectables/collectables.dart';
-import 'package:scene_game/collectables/config.dart';
+import 'package:scene_game/collectables/data/config.dart';
 
 /// Pure-logic coverage for the global shield's activate/tick/absorb/reset
 /// machine — no scene or GPU.

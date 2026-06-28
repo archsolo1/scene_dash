@@ -10,16 +10,16 @@ import 'package:vector_math/vector_math.dart' show Matrix4, Vector3, Vector4;
 import '../fx/instanced_pool.dart';
 import '../game/game_state.dart';
 import '../game/physics_layers.dart';
-import '../player/config.dart';
+import '../player/data/config.dart';
 import '../player/player.dart';
-import 'config.dart';
+import 'data/config.dart';
 
 part 'collectables.g.dart';
-part 'components.dart';
-part 'resources.dart';
-part 'bundles.dart';
-part 'vfx.dart';
-part 'systems.dart';
+part 'data/components.dart';
+part 'data/resources.dart';
+part 'data/bundles.dart';
+part 'vfx/vfx.dart';
+part 'systems/systems.dart';
 
 /// Installs rolling shield pickups, the shield state, and the player's shield
 /// feedback and deflection VFX.

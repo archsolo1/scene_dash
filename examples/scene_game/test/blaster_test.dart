@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:scene_game/projectiles/config.dart';
+import 'package:scene_game/projectiles/data/config.dart';
 import 'package:scene_game/projectiles/projectiles.dart';
 
 /// Pure-logic coverage for the blaster's tap-to-burst / hold-to-charge state

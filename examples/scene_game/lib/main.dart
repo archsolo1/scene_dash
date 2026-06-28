@@ -12,7 +12,7 @@ import 'decor/decor.dart';
 import 'game/camera.dart';
 import 'game/camera_rig.dart';
 import 'game/game_state.dart';
-import 'world/config.dart';
+import 'world/data/config.dart';
 import 'hud/game_hud.dart';
 import 'player/player.dart';
 import 'projectiles/projectiles.dart';

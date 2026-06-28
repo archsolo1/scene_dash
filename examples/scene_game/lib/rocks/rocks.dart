@@ -9,14 +9,14 @@ import 'package:vector_math/vector_math.dart' show Matrix4, Vector3, Vector4;
 import '../fx/instanced_pool.dart';
 import '../game/game_state.dart';
 import '../game/physics_layers.dart';
-import 'config.dart';
+import 'data/config.dart';
 
 part 'rocks.g.dart';
-part 'components.dart';
-part 'resources.dart';
-part 'bundles.dart';
-part 'vfx.dart';
-part 'systems.dart';
+part 'data/components.dart';
+part 'data/resources.dart';
+part 'data/bundles.dart';
+part 'vfx/vfx.dart';
+part 'systems/systems.dart';
 
 /// Installs the rocks feature and its spawner resource.
 @GamePlugin()

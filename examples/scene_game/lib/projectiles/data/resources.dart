@@ -19,12 +19,23 @@ final class BlasterShots {
 /// Tap-to-burst / hold-to-charge fire state machine; the HUD and charge VFX
 /// read it through [BlasterView].
 final class Blaster implements BlasterView {
+  Blaster() {
+    // Start with recovery fully served, so the blaster is ready and the HUD
+    // shows no cooldown before the first shot.
+    _recovery.tick(blasterCooldown);
+  }
+
   BlasterPhase _phase = BlasterPhase.ready;
 
-  double _charge = 0;
-  double _cooldown = 0;
-  double _cooldownDuration = 0;
+  /// Charge accrual while the fire button is held; clamps at max charge.
+  final GameTimer _charge = GameTimer(blasterMaxChargeDuration);
 
+  /// Recovery after firing. The duration varies per shot type, so each fire
+  /// resets it with the right target.
+  final GameTimer _recovery = GameTimer(blasterCooldown);
+
+  // Burst pellets are an emission queue (n shots at a fixed spacing, first
+  // one immediately), not a plain timer, so their pacing stays hand-rolled.
   int _queuedBurst = 0;
   double _burstTimer = 0;
 
@@ -34,20 +45,18 @@ final class Blaster implements BlasterView {
   double get charge01 {
     if (_phase != BlasterPhase.charging) return 0;
     const span = blasterMaxChargeDuration - blasterChargeThreshold;
-    return ((_charge - blasterChargeThreshold) / span).clamp(0.0, 1.0);
+    return ((_charge.elapsed - blasterChargeThreshold) / span).clamp(0.0, 1.0);
   }
 
   @override
-  double get cooldown01 {
-    if (_cooldownDuration <= 0) return 0;
-    return (_cooldown / _cooldownDuration).clamp(0.0, 1.0);
-  }
+  double get cooldown01 => 1 - _recovery.fraction;
 
   @override
   bool get isCharging =>
-      _phase == BlasterPhase.charging && _charge >= blasterChargeThreshold;
+      _phase == BlasterPhase.charging &&
+      _charge.elapsed >= blasterChargeThreshold;
 
-  bool get isCoolingDown => _cooldown > 0;
+  bool get isCoolingDown => !_recovery.finished;
 
   @override
   bool get isReady => _phase == BlasterPhase.ready;
@@ -60,13 +69,10 @@ final class Blaster implements BlasterView {
     required bool held,
     required double dt,
   }) {
-    // Counts down through both bursting and cooldown phases, so total recovery
-    // after firing is one _cooldownDuration.
-    if (_cooldown > 0) {
-      _cooldown -= dt;
-      if (_cooldown < 0) _cooldown = 0;
-    }
-    if (_phase == BlasterPhase.cooldown && _cooldown == 0) {
+    // Recovery serves through both bursting and cooldown phases, so total
+    // recovery after firing is one timer duration.
+    _recovery.tick(dt);
+    if (_phase == BlasterPhase.cooldown && _recovery.finished) {
       _phase = BlasterPhase.ready;
     }
 
@@ -74,32 +80,25 @@ final class Blaster implements BlasterView {
 
     if (pressed && _phase == BlasterPhase.ready) {
       _phase = BlasterPhase.charging;
-      _charge = 0;
+      _charge.reset();
     }
 
     if (_phase == BlasterPhase.charging) {
       if (canceled) {
         _phase = BlasterPhase.ready;
-        _charge = 0;
       } else if (released) {
-        if (_charge >= blasterChargeThreshold) {
-          charged = charge01;
-          _charge = 0;
+        if (_charge.elapsed >= blasterChargeThreshold) {
+          charged = charge01; // Read before the phase leaves `charging`.
           _startCooldown(chargedShotCooldown);
         } else {
-          _charge = 0;
           _startBurst();
         }
       } else if (held) {
-        _charge += dt;
-        if (_charge > blasterMaxChargeDuration) {
-          _charge = blasterMaxChargeDuration;
-        }
+        _charge.tick(dt);
       } else {
         // Held dropped with no transition flag (focus loss mid-step): abort so
         // the blaster can't get stuck charging.
         _phase = BlasterPhase.ready;
-        _charge = 0;
       }
     }
 
@@ -113,14 +112,12 @@ final class Blaster implements BlasterView {
     _phase = BlasterPhase.bursting;
     _queuedBurst = blasterBurstShots;
     _burstTimer = 0;
-    _cooldown = blasterCooldown;
-    _cooldownDuration = blasterCooldown;
+    _recovery.reset(blasterCooldown);
   }
 
   void _startCooldown(double duration) {
     _phase = BlasterPhase.cooldown;
-    _cooldown = duration;
-    _cooldownDuration = duration;
+    _recovery.reset(duration);
   }
 
   int _emitBurstPellets(double dt) {
@@ -133,16 +130,17 @@ final class Blaster implements BlasterView {
       _burstTimer += blasterBurstInterval;
     }
     if (_queuedBurst == 0) {
-      _phase = _cooldown > 0 ? BlasterPhase.cooldown : BlasterPhase.ready;
+      _phase = _recovery.finished ? BlasterPhase.ready : BlasterPhase.cooldown;
     }
     return fired;
   }
 
   void reset() {
     _phase = BlasterPhase.ready;
-    _charge = 0;
-    _cooldown = 0;
-    _cooldownDuration = 0;
+    _charge.reset();
+    _recovery
+      ..reset()
+      ..tick(_recovery.duration);
     _queuedBurst = 0;
     _burstTimer = 0;
   }

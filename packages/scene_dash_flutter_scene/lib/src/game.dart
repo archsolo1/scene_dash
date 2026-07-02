@@ -18,7 +18,10 @@ import 'scene_transform.dart';
 /// * exposes the real [Scene] and [SceneCommands] as `@Resource()`s;
 /// * auto-mounts entity-bound nodes ([SceneNodeRef]) into the scene;
 /// * synchronizes the standard [SceneTransform] onto bound nodes each frame;
-/// * attaches the internal [EcsSceneDriver] and exposes [onTick] for `SceneView`.
+/// * attaches the internal [EcsSceneDriver] and exposes [onTick] for `SceneView`;
+/// * drives the scene tick on [GameClock]-scaled time, so `timeScale`,
+///   `paused`, and `freezeFor` (hitstop) apply to physics, animations, and
+///   gameplay together.
 ///
 /// (Use `CustomSceneSyncPlugin<T>` only for a non-standard transform type.)
 ///
@@ -165,9 +168,17 @@ final class Game {
     _started = true;
   }
 
-  /// `SceneView.onTick` handler: runs frame-start work.
+  /// `SceneView.onTick` handler: runs frame-start work, then explicitly
+  /// ticks the scene with the [GameClock]-scaled delta.
+  ///
+  /// Driving `Scene.update` here (instead of letting `Scene.render` take its
+  /// implicit wall-clock tick) is what makes the clock authoritative: the
+  /// physics accumulator, component updates, and animations all advance on
+  /// scaled time, so `timeScale`/`paused`/`freezeFor` slow or halt physics
+  /// and gameplay together. At scale `0` no fixed steps run at all.
   void onTick(Duration elapsed, double deltaSeconds) {
-    _loop.frameStart(elapsed, deltaSeconds);
+    final scaledDelta = _loop.frameStart(elapsed, deltaSeconds);
+    scene.update(scaledDelta);
   }
 
   /// Shuts down the underlying app and detaches the internal scene driver.

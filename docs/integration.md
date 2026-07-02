@@ -15,7 +15,12 @@ On start, it:
   `node.parent == null` guard — a queried node is already in the scene;
 - syncs optional `SceneTransform` components onto bound nodes;
 - exposes a `SceneNodeIndex` resource — the node → entity reverse lookup;
-- attaches one internal scene driver and exposes `game.onTick` for `SceneView`.
+- attaches one internal scene driver and exposes `game.onTick` for `SceneView`;
+- drives the scene tick (`Scene.update`) from `game.onTick` on
+  `GameClock`-scaled time, so `timeScale`, `paused`, and `freezeFor` (hitstop)
+  slow or halt physics stepping, animations, and gameplay together. Systems
+  that keep moving while game time is stopped (HUD, camera shake) read
+  `FrameTime.unscaledDelta` instead of `FrameTime.delta`.
 
 A mounted entity also gains an integration-managed `Mounted` tag (removed on
 unmount/despawn) for the rare system that wants to filter on scene-mounted

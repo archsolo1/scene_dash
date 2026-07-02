@@ -9,6 +9,9 @@ final class RockBundle with _$RockBundle {
   final PhysicsDriven physics;
   final RockVisuals visuals;
 
+  /// Every rock is scoped to the run: exiting `playing` despawns it.
+  final DespawnOnExit scope;
+
   factory RockBundle({required double x, bool flaming = false}) {
     final shell = _makeShell();
     return RockBundle._(SceneNodeRef(_makeNode(x, flaming, shell)), shell);
@@ -17,7 +20,8 @@ final class RockBundle with _$RockBundle {
   RockBundle._(this.node, Node shell)
     : rock = const Rock(),
       physics = const PhysicsDriven(),
-      visuals = RockVisuals(shell);
+      visuals = RockVisuals(shell),
+      scope = const DespawnOnExit(GameStatus.playing);
 
   static final Material _material = PhysicallyBasedMaterial()
     ..baseColorFactor = Vector4(0.42, 0.24, 0.18, 1)

@@ -25,8 +25,8 @@ final class RockVisuals {
 /// removed when the flash finishes.
 @ObjectComponent()
 final class RockHitReaction {
-  RockHitReaction({required this.strength}) : remaining = rockHitReactionDuration;
+  RockHitReaction({required this.strength});
 
-  double remaining;
+  final GameTimer flash = GameTimer(rockHitReactionDuration);
   final double strength;
 }

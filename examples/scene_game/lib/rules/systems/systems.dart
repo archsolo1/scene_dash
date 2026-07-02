@@ -18,9 +18,8 @@ void evaluateGameRules(
   @Resource() ShieldDeflectVfx deflectVfx,
 ) {
   final node = player.value.node;
-  // globalTransform returns the node's cached matrix — no allocation.
-  final m = node.globalTransform.storage;
-  final pos = _playerPos..setValues(m[12], m[13], m[14]);
+  node.globalTranslationInto(_playerPos);
+  final pos = _playerPos;
 
   game.addSurvival(time.delta);
 
@@ -53,15 +52,9 @@ void evaluateGameRules(
   // if deflecting one drains the timer to zero.
   final shielded = shield.active;
   for (final hit in hits) {
-    // overlapSphere's layerMask is not yet honored by flutter_scene_rapier, so
-    // classify rocks on the result side by collider layer.
-    final collider = hit.collider;
-    if (collider is! RapierCollider ||
-        collider.collisionLayer & PhysicsLayers.rock == 0) {
-      continue;
-    }
-    final rm = hit.node.globalTransform.storage;
-    final rockPos = _rockPos..setValues(rm[12], rm[13], rm[14]);
+    if (!colliderOnLayer(hit.collider, PhysicsLayers.rock)) continue;
+    hit.node.globalTranslationInto(_rockPos);
+    final rockPos = _rockPos;
     if (shielded) {
       _deflectRock(hit.node, pos, rockPos, deflectVfx);
       shield.absorbHit();
@@ -116,8 +109,8 @@ final class PlayerViewSystem extends GameSystem {
     @Resource() CameraRig camera,
     @Resource() FrameTime time,
   ) {
-    final m = player.value.node.globalTransform.storage;
-    camera.follow(_playerPos..setValues(m[12], m[13], m[14]), time.delta);
+    player.value.node.globalTranslationInto(_playerPos);
+    camera.follow(_playerPos, time.delta);
   }
 }
 
@@ -136,58 +129,16 @@ void requestRestart(
   nextStatus.set(GameStatus.playing);
 }
 
-/// Starts a run clean: restores the player body and resets all feature state.
-/// Registered in `OnEnter(GameStatus.playing)`, so it runs once at startup and
-/// again on every restart. Rocks, projectiles and pickups need no cleanup here
-/// — they carry `DespawnOnExit(GameStatus.playing)` and are swept by the
-/// transition itself.
+/// Starts a run clean. Registered in `OnEnter(GameStatus.playing)`, so it
+/// runs once at startup and again on every restart.
+///
+/// Rules only resets what it owns — the run clock and the camera. Every
+/// feature resets its own state in its own `OnEnter(GameStatus.playing)`
+/// system, and run-scoped entities (rocks, projectiles, pickups) carry
+/// `DespawnOnExit(GameStatus.playing)` in their bundles, so the transition
+/// itself sweeps them.
 @System()
-final class StartRunSystem extends GameSystem {
-  const StartRunSystem();
-
-  void run(
-    @Query(requires: [Player], writes: [SceneNodeRef])
-    Single<SceneNodeRef> player,
-    @Query(requires: [Player], writes: [PlayerVisuals])
-    Single<PlayerVisuals> playerVisuals,
-    @Resource() InputState input,
-    @Resource() GameState game,
-    @Resource() RockSpawner spawner,
-    @Resource() CameraRig camera,
-    @Resource() PlayerKnockback knockback,
-    @Resource() Blaster blaster,
-    @Resource() ImpactVfx impactVfx,
-    @Resource() LockOnReticle reticle,
-    @Resource() ShieldState shield,
-    @Resource() CollectableSpawner pickupSpawner,
-    @Resource() ShieldDeflectVfx deflectVfx,
-  ) {
-    // Resets the native body and transform through SceneNodeRef, hence
-    // `writes: [SceneNodeRef]` above.
-    final ref = player.value;
-    final node = ref.node;
-    final body = ref.component<RapierRigidBody>();
-    if (body != null) {
-      body
-        ..type = BodyType.kinematic
-        ..linearVelocity = Vector3.zero()
-        ..angularVelocity = Vector3.zero();
-    }
-    node.localTransform = Matrix4.translation(
-      Vector3(0, playerStartY, playerStartZ),
-    );
-    camera.reset();
-    knockback.reset();
-    spawner.reset();
-    blaster.reset();
-    impactVfx.reset();
-    reticle.reset();
-    shield.reset();
-    pickupSpawner.reset();
-    deflectVfx.reset();
-    input.clearFireTransitions();
-    playerVisuals.value.resetLegs();
-    game.reset();
-    // Charge/shield visuals self-clear once the blaster and shield are reset.
-  }
+void startRun(@Resource() GameState game, @Resource() CameraRig camera) {
+  game.reset();
+  camera.reset();
 }

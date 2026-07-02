@@ -58,6 +58,16 @@ final class EventChannel<T> implements EventChannelMaintenance {
   /// Absolute index just past the last event (one more than the newest).
   int get _end => _base + _events.length;
 
+  /// Whether the channel currently buffers any events. An event stays
+  /// buffered until every reader has consumed it, capped by the retention
+  /// window (see [EventChannel] docs) — under the default retention, at most
+  /// the frame it was sent plus the following one. The `hasEvents` run
+  /// condition keys off this.
+  bool get isNotEmpty => _events.isNotEmpty;
+
+  /// Whether the channel buffers no events. See [isNotEmpty].
+  bool get isEmpty => _events.isEmpty;
+
   /// Appends an event to the channel.
   void send(T event) => _events.add(event);
 

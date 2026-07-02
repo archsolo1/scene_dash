@@ -1,15 +1,15 @@
-import 'dart:math' as math;
-
 import 'package:flutter_scene/scene.dart';
 import 'package:flutter_scene_rapier/flutter_scene_rapier.dart';
 import 'package:scene_dash/scene_dash.dart';
 import 'package:scene_dash_flutter_scene/scene_dash_flutter_scene.dart';
 import 'package:vector_math/vector_math.dart' show Matrix4, Vector3, Vector4;
 
+import '../fx/anim.dart';
 import '../game/game_state.dart';
 import '../game/physics_layers.dart';
 import '../world/data/config.dart';
 import '../world/data/ramp.dart';
+import 'animation/gait.dart';
 import 'data/config.dart';
 
 part 'player.g.dart';
@@ -28,6 +28,10 @@ final class PlayerPlugin extends Plugin {
     app
       ..insertResource<PlayerKnockback>(PlayerKnockback())
       ..addSystem(spawnPlayerSystem, schedule: Schedules.startup)
+      ..addSystem(
+        resetPlayerOnRunStartSystem,
+        schedule: OnEnter(GameStatus.playing),
+      )
       ..addSystem(
         movePlayerSystem,
         schedule: Schedules.fixedPrePhysics,

@@ -8,6 +8,7 @@ import 'package:scene_dash/scene_dash.dart';
 import 'package:scene_dash_flutter_scene/scene_dash_flutter_scene.dart';
 import 'package:vector_math/vector_math.dart' show Matrix4, Vector3, Vector4;
 
+import '../fx/anim.dart';
 import '../fx/instanced_pool.dart';
 import '../game/camera_rig.dart';
 import '../game/game_state.dart';
@@ -45,18 +46,31 @@ final class ProjectilesPlugin extends Plugin {
       ..insertResource<Blaster>(blaster)
       ..insertResource<ImpactVfx>(ImpactVfx())
       ..insertResource<LockOnReticle>(LockOnReticle())
+      ..addSystem(
+        resetProjectilesOnRunStartSystem,
+        schedule: OnEnter(GameStatus.playing),
+      )
+      ..addSystem(
+        stopBlasterOnRunEndSystem,
+        schedule: OnExit(GameStatus.playing),
+      )
       // Shooting reads the player position after movePlayer has moved it.
       ..addSystem(
         shootProjectilesSystem,
         schedule: Schedules.fixedPrePhysics,
         after: [movePlayerSystem],
+        runIf: inState(GameStatus.playing),
       )
-      ..addSystem(spawnImpactVfxSystem, schedule: Schedules.startup)
-      ..addSystem(spawnLockOnReticleSystem, schedule: Schedules.startup)
-      ..addSystem(updateProjectilesSystem, schedule: Schedules.update)
-      ..addSystem(updateChargeVisualsSystem, schedule: Schedules.update)
-      ..addSystem(updateImpactVfxSystem, schedule: Schedules.update)
-      ..addSystem(updateLockOnReticleSystem, schedule: Schedules.update)
+      ..addSystems(Schedules.startup, [
+        spawnImpactVfxSystem,
+        spawnLockOnReticleSystem,
+      ])
+      ..addSystems(Schedules.update, [
+        updateProjectilesSystem,
+        updateChargeVisualsSystem,
+        updateImpactVfxSystem,
+        updateLockOnReticleSystem,
+      ])
       ..addSystem(disposeLockOnReticleSystem, schedule: Schedules.shutdown);
   }
 }

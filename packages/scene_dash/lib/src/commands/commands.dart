@@ -45,15 +45,25 @@ final class Commands {
     _types.add(type);
   }
 
-  /// Reserves a new entity immediately and returns its handle. If [bundle] is
-  /// given, its component insertions are queued and applied on the next [apply]
-  /// (so the entity exists right away but is populated at a safe boundary).
-  Entity spawn([SceneDashBundle? bundle]) {
+  /// Reserves a new entity immediately and returns fluent commands targeting
+  /// it, so a spawn can be decorated in place:
+  ///
+  /// ```dart
+  /// commands.spawn(BossBundle())
+  ///   ..insert(const DespawnOnExit(GamePhase.dungeon));
+  /// final rock = commands.spawn(RockBundle()).entity;
+  /// ```
+  ///
+  /// If [bundle] is given, its component insertions are queued and applied on
+  /// the next [apply] (so the entity exists right away but is populated at a
+  /// safe boundary). Inserts chained on the returned [EntityCommands] apply in
+  /// the same flush, after the bundle's own components.
+  EntityCommands spawn([SceneDashBundle? bundle]) {
     final entity = _world.entities.spawn();
     if (bundle != null) {
       _push(_opBundle, entity, bundle, Object);
     }
-    return entity;
+    return EntityCommands(this, entity);
   }
 
   /// Returns a fluent command handle targeting [entity].

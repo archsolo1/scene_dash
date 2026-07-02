@@ -40,7 +40,7 @@ final class SpawnPlayerAdapter implements SystemAdapter {
 
   @override
   void run() {
-    final entity = _commands.spawn();
+    final entity = _commands.spawn().entity;
     _commands
       ..insert<Position>(entity, Position(0, 0))
       ..insert<Velocity>(entity, const Velocity(1, 2))

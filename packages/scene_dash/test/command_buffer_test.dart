@@ -6,6 +6,16 @@ final class Health {
   const Health(this.value);
 }
 
+final class _HealthBundle implements SceneDashBundle {
+  final Health health;
+  const _HealthBundle(this.health);
+
+  @override
+  void insertInto(World world, Entity entity) {
+    world.insertNow<Health>(entity, health);
+  }
+}
+
 void main() {
   group('Commands (deferred structural changes)', () {
     late World world;
@@ -15,12 +25,12 @@ void main() {
     });
 
     test('spawn reserves a live entity immediately', () {
-      final entity = world.commands.spawn();
+      final entity = world.commands.spawn().entity;
       expect(world.entities.isAlive(entity), isTrue);
     });
 
     test('insert is deferred until apply', () {
-      final entity = world.commands.spawn();
+      final entity = world.commands.spawn().entity;
       world.commands.insert<Health>(entity, const Health(100));
 
       expect(
@@ -33,7 +43,7 @@ void main() {
     });
 
     test('remove and despawn are deferred until apply', () {
-      final entity = world.commands.spawn();
+      final entity = world.commands.spawn().entity;
       world.commands.insert<Health>(entity, const Health(50));
       world.commands.apply();
 
@@ -47,7 +57,7 @@ void main() {
     });
 
     test('apply clears the queue', () {
-      final entity = world.commands.spawn();
+      final entity = world.commands.spawn().entity;
       world.commands.insert<Health>(entity, const Health(1));
       expect(world.commands.isEmpty, isFalse);
       world.commands.apply();
@@ -55,7 +65,7 @@ void main() {
     });
 
     test('entity commands provide fluent deferred operations', () {
-      final entity = world.commands.spawn();
+      final entity = world.commands.spawn().entity;
       world.commands
           .entity(entity)
           .insert<Health>(const Health(25))
@@ -72,8 +82,27 @@ void main() {
       expect(world.entities.isAlive(entity), isFalse);
     });
 
+    test('spawn returns entity commands for in-place decoration', () {
+      final spawned = world.commands.spawn()..insert<Health>(const Health(10));
+
+      expect(world.tryGet<Health>(spawned.entity), isNull);
+      world.commands.apply();
+      expect(world.get<Health>(spawned.entity).value, 10);
+    });
+
+    test('inserts chained on spawn apply after the bundle, same flush', () {
+      final entity = world.commands
+          .spawn(_HealthBundle(const Health(1)))
+          .insert<Health>(const Health(99))
+          .entity;
+
+      world.commands.apply();
+      expect(world.get<Health>(entity).value, 99,
+          reason: 'the chained insert overrides the bundle component');
+    });
+
     test('stale command targets assert when applied in debug mode', () {
-      final entity = world.commands.spawn();
+      final entity = world.commands.spawn().entity;
       world.commands.despawn(entity);
       world.commands.apply();
 

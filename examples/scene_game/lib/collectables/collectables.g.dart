@@ -48,6 +48,39 @@ final spawnShieldPickupsSystem = SystemDescriptor(
   () => $SpawnShieldPickupsAdapter(),
 );
 
+class $ResetCollectablesOnRunStartAdapter
+    implements SystemAdapter, SystemAccessProvider {
+  late final ShieldState _p0;
+  late final CollectableSpawner _p1;
+  late final ShieldDeflectVfx _p2;
+
+  @override
+  void initialize(World world) {
+    _p0 = world.resources.get<ShieldState>();
+    _p1 = world.resources.get<CollectableSpawner>();
+    _p2 = world.resources.get<ShieldDeflectVfx>();
+  }
+
+  @override
+  SystemAccess get access =>
+      const SystemAccess(reads: <Type>{}, writes: <Type>{});
+
+  @override
+  void run() {
+    resetCollectablesOnRunStart(_p0, _p1, _p2);
+  }
+}
+
+/// Schedulable descriptor for [resetCollectablesOnRunStart]. Pass to `app.addSystem` and reference in
+/// `after`/`before`.
+final resetCollectablesOnRunStartSystem = SystemDescriptor(
+  const SystemRef(
+    'package:scene_game/collectables/collectables.dart',
+    'resetCollectablesOnRunStart',
+  ),
+  () => $ResetCollectablesOnRunStartAdapter(),
+);
+
 class $UpdateShieldStateAdapter implements SystemAdapter, SystemAccessProvider {
   late final ShieldState _p0;
   late final FrameTime _p1;
@@ -316,5 +349,6 @@ mixin _$ShieldPickupBundle implements SceneDashBundle {
     );
     world.ensureObjectStore<SceneNodeRef>().insert(entity.index, self.node);
     world.ensureTagStore<PhysicsDriven>().add(entity.index);
+    world.ensureObjectStore<DespawnOnExit>().insert(entity.index, self.scope);
   }
 }

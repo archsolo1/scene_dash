@@ -34,32 +34,46 @@ final class EcsFrameLoop {
     this.onFrameEnd,
   });
 
-  /// Inserts default [FrameTime]/[FixedTime] resources if a plugin has not
-  /// already provided them. Call before [App.start].
+  /// Inserts default [FrameTime]/[FixedTime]/[GameClock] resources if a
+  /// plugin has not already provided them. Call before [App.start].
   void ensureTimeResources() {
     final resources = app.world.resources;
     if (!resources.contains<FrameTime>()) resources.insert(FrameTime());
     if (!resources.contains<FixedTime>()) resources.insert(FixedTime());
+    if (!resources.contains<GameClock>()) resources.insert(GameClock());
   }
 
-  /// Frame start: update [FrameTime], run [Schedules.frameStart], apply
-  /// pending state transitions (OnExit/OnEnter), then advance event channels
-  /// for the new frame.
+  /// Frame start: apply the [GameClock] to the raw wall delta, update
+  /// [FrameTime], run [Schedules.frameStart], apply pending state transitions
+  /// (OnExit/OnEnter), then advance event channels for the new frame.
+  ///
+  /// Returns the scaled delta. The driver must feed that value — not the raw
+  /// one — to the scene tick (`Scene.update`), which is what slows or halts
+  /// the physics accumulator, component updates, and animations together
+  /// with the ECS; [Game.onTick] does this.
   ///
   /// Transitions apply before [onCommandBoundary], so nodes spawned by
   /// `OnEnter` systems are mounted before the frame's fixed/update steps.
-  void frameStart(Duration elapsed, double deltaSeconds) {
+  double frameStart(Duration elapsed, double deltaSeconds) {
     // Advance the profiler frame counter (if profiling is enabled) at the one
     // per-frame boundary, so timings can be attributed to a frame number.
     app.profiler?.beginFrame();
+    final clock = app.world.resources.get<GameClock>();
+    // Read the scale before serving the freeze: a freeze shorter than one
+    // frame must still freeze the frame it lands on, so any nonzero
+    // remainder zeroes this frame and the wall delta is deducted after.
+    final scaledDelta = deltaSeconds * clock.effectiveScale;
+    clock.advanceFreeze(deltaSeconds);
     app.world.resources.get<FrameTime>()
-      ..delta = deltaSeconds
+      ..delta = scaledDelta
+      ..unscaledDelta = deltaSeconds
       ..elapsed = elapsed
       ..frame += 1;
     app.runSchedule(Schedules.frameStart);
     app.applyStateTransitions();
     onCommandBoundary?.call();
     app.updateEvents();
+    return scaledDelta;
   }
 
   /// Fixed step (before the scene physics step): update [FixedTime] and run
@@ -76,6 +90,11 @@ final class EcsFrameLoop {
   /// [onCommandBoundary] (where [Game] mounts nodes spawned during `update`),
   /// [Schedules.renderSync], and finally [onFrameEnd] (e.g. flush scene-graph
   /// mutations) before render.
+  ///
+  /// [deltaSeconds] arrives already clock-scaled under the standard driver:
+  /// it is the value [frameStart] returned, routed through `Scene.update`'s
+  /// component walk. `FrameTime.unscaledDelta` (set at [frameStart]) carries
+  /// this frame's wall delta.
   void update(double deltaSeconds) {
     app.world.resources.get<FrameTime>().delta = deltaSeconds;
     onBeforeUpdate?.call();

@@ -63,7 +63,7 @@ void animateCrabLegs(
   final v = visuals.value;
   final dt = time.delta;
 
-  v.legExtension01 = _approach01(
+  v.legExtension01 = approach(
     v.legExtension01,
     1.0,
     dt / crabLegExtensionDuration,
@@ -84,7 +84,7 @@ void animateCrabLegs(
       gaitPhase: v.gaitPhase,
       phaseOffset: leg.phaseOffset,
     );
-    final basePose = _mixCrabLegPose(
+    final basePose = mixCrabLegPose(
       leg.collapsedPose,
       leg.extendedPose,
       sample.extension,
@@ -93,7 +93,28 @@ void animateCrabLegs(
   }
 }
 
-double _approach01(double value, double target, double amount) {
-  final a = amount.clamp(0.0, 1.0).toDouble();
-  return value + (target - value) * a;
+/// Restores the player's body, pose and knockback for a fresh run. Each
+/// feature resets its own state in `OnEnter(GameStatus.playing)`; the rules
+/// feature only resets what it owns (run clock, camera).
+@System()
+void resetPlayerOnRunStart(
+  @Query(requires: [Player], writes: [SceneNodeRef])
+  Single<SceneNodeRef> player,
+  @Query(requires: [Player], writes: [PlayerVisuals])
+  Single<PlayerVisuals> visuals,
+  @Resource() PlayerKnockback knockback,
+) {
+  final ref = player.value;
+  final body = ref.component<RapierRigidBody>();
+  if (body != null) {
+    body
+      ..type = BodyType.kinematic
+      ..linearVelocity = Vector3.zero()
+      ..angularVelocity = Vector3.zero();
+  }
+  ref.node.localTransform = Matrix4.translation(
+    Vector3(0, playerStartY, playerStartZ),
+  );
+  knockback.reset();
+  visuals.value.resetLegs();
 }

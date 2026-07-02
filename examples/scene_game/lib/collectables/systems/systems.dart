@@ -1,5 +1,9 @@
 part of '../collectables.dart';
 
+// Reused scratch so per-frame position reads allocate nothing.
+final Vector3 _playerScratch = Vector3.zero();
+final Vector3 _pickupScratch = Vector3.zero();
+
 /// Spawns a shield pickup when none is active and the cadence is due; the
 /// [OptionalSingle] gate is the single source of "is a pickup active".
 @System()
@@ -11,11 +15,20 @@ void spawnShieldPickups(
 ) {
   if (activePickup.isPresent) return;
   if (!spawner.tick(time.delta)) return;
-  final entity = commands.spawn(ShieldPickupBundle(x: spawner.nextLane()));
-  commands.insert<DespawnOnExit>(
-    entity,
-    const DespawnOnExit(GameStatus.playing),
-  );
+  // The bundle itself scopes the pickup to the run (DespawnOnExit field).
+  commands.spawn(ShieldPickupBundle(x: spawner.nextLane()));
+}
+
+/// Collectables reset their own state when a run (re)starts.
+@System()
+void resetCollectablesOnRunStart(
+  @Resource() ShieldState shield,
+  @Resource() CollectableSpawner spawner,
+  @Resource() ShieldDeflectVfx deflectVfx,
+) {
+  shield.reset();
+  spawner.reset();
+  deflectVfx.reset();
 }
 
 @System()
@@ -42,12 +55,7 @@ void animateShieldPickups(
     state.age += dt;
     final pulse = 1 + 0.18 * math.sin(state.age * 6);
     final bob = 0.12 * math.sin(state.age * 3);
-    final glow = visuals.glow;
-    final m = glow.localTransform
-      ..setIdentity()
-      ..setTranslationRaw(0, bob, 0)
-      ..scaleByDouble(pulse, pulse, pulse, 1);
-    glow.localTransform = m;
+    visuals.glow.setLocalUniform(0, bob, 0, pulse);
   });
 }
 
@@ -60,12 +68,12 @@ void collectShieldPickups(
   @Resource() ShieldState shield,
   Commands commands,
 ) {
-  final p = player.value.node.globalTransform.getTranslation();
+  player.value.node.globalTranslationInto(_playerScratch);
   pickups.each((entity, binding) {
-    final c = binding.node.globalTransform.getTranslation();
-    final dx = c.x - p.x;
-    final dy = c.y - p.y;
-    final dz = c.z - p.z;
+    binding.node.globalTranslationInto(_pickupScratch);
+    final dx = _pickupScratch.x - _playerScratch.x;
+    final dy = _pickupScratch.y - _playerScratch.y;
+    final dz = _pickupScratch.z - _playerScratch.z;
     if (dx * dx + dy * dy + dz * dz <= shieldCollectDistanceSq) {
       shield.activate();
       commands.despawn(entity);
@@ -95,9 +103,9 @@ void updateShieldVisuals(
   final warnFlash = warning ? 0.5 + 0.5 * math.sin(v.shieldPhase * 1.5) : 1.0;
 
   // Bubble: eased show factor so expiry shrinks it cleanly.
-  v.shieldShow = _approach(v.shieldShow, shield.active ? 1.0 : 0.0, dt * 8);
+  v.shieldShow = approach(v.shieldShow, shield.active ? 1.0 : 0.0, dt * 8);
   final bubbleScale = v.shieldShow * breathe;
-  _placeUniform(v.shieldBubble, 0, 0, 0, bubbleScale);
+  v.shieldBubble.setLocalUniform(0, 0, 0, bubbleScale);
   v.shieldBubbleMaterial.baseColorFactor = Vector4(
     0.4,
     0.8,
@@ -115,8 +123,7 @@ void updateShieldVisuals(
   v.badgePop = math.max(0, v.badgePop - dt / 0.45);
   final prog = 1 - v.badgePop;
   final badgeScale = v.badgePop > 0.001 ? math.sin(prog * math.pi) * 1.3 : 0.0;
-  _placeUniform(
-    v.shieldBadge,
+  v.shieldBadge.setLocalUniform(
     0,
     playerBodyVisualRadius * 0.6,
     -(playerBodyVisualRadius + 0.4),
@@ -131,8 +138,9 @@ void cleanupPickups(
   Commands commands,
 ) {
   pickups.each((entity, binding) {
-    final pos = binding.node.globalTransform.getTranslation();
-    if (pos.y < collectableKillY || pos.z > collectablePassZ) {
+    binding.node.globalTranslationInto(_pickupScratch);
+    if (_pickupScratch.y < collectableKillY ||
+        _pickupScratch.z > collectablePassZ) {
       commands.despawn(entity);
     }
   });
@@ -176,16 +184,3 @@ void updateShieldDeflectVfx(
   }
 }
 
-double _approach(double value, double target, double rate) {
-  final a = rate.clamp(0.0, 1.0);
-  return value + (target - value) * a;
-}
-
-// Mutates in place and re-assigns to trip the node's dirty flag — no allocation.
-void _placeUniform(Node node, double x, double y, double z, double s) {
-  final m = node.localTransform
-    ..setIdentity()
-    ..setTranslationRaw(x, y, z)
-    ..scaleByDouble(s, s, s, 1);
-  node.localTransform = m;
-}

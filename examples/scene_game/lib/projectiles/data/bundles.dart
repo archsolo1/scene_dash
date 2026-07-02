@@ -10,6 +10,9 @@ final class ProjectileBundle with _$ProjectileBundle {
   final SceneNodeRef node;
   final PhysicsDriven physics = const PhysicsDriven();
 
+  /// Scoped to the run: exiting `playing` despawns shots in flight.
+  final DespawnOnExit scope = const DespawnOnExit(GameStatus.playing);
+
   // Geometry and materials are shared across spawns; charged strength is shown
   // with transform scale on the visual child, not a per-shot material.
   static final Material _material = PhysicallyBasedMaterial()

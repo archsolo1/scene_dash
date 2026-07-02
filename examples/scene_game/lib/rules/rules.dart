@@ -4,7 +4,7 @@ import 'package:flutter_scene/scene.dart';
 import 'package:flutter_scene_rapier/flutter_scene_rapier.dart';
 import 'package:scene_dash/scene_dash.dart';
 import 'package:scene_dash_flutter_scene/scene_dash_flutter_scene.dart';
-import 'package:vector_math/vector_math.dart' show Matrix4, Ray, Vector3;
+import 'package:vector_math/vector_math.dart' show Ray, Vector3;
 
 import '../collectables/collectables.dart';
 import '../collectables/data/config.dart';
@@ -13,8 +13,6 @@ import '../game/game_state.dart';
 import '../game/physics_layers.dart';
 import '../player/data/config.dart';
 import '../player/player.dart';
-import '../projectiles/projectiles.dart';
-import '../rocks/rocks.dart';
 import 'data/config.dart';
 
 part 'rules.g.dart';

@@ -80,3 +80,40 @@ abstract interface class AppBuilder {
   /// Builds [plugin] into this app if it has not already been added.
   AppBuilder addPlugin(Plugin plugin);
 }
+
+/// Batch registration sugar over [AppBuilder.addSystem].
+extension AppBuilderSystems on AppBuilder {
+  /// Registers every descriptor in [descriptors] into [schedule], sharing one
+  /// [runIf] — the shape of Bevy's `add_systems(Update, (a, b, c))`:
+  ///
+  /// ```dart
+  /// app.addSystems(Schedules.update, runIf: inState(GameStatus.playing), [
+  ///   tickActionStateSystem,
+  ///   resolveHitsSystem,
+  ///   applyDamageSystem,
+  /// ], chained: true);
+  /// ```
+  ///
+  /// With [chained], each system is constrained to run `after` the previous
+  /// one (Bevy's `.chain()`); otherwise order within the batch is left to the
+  /// scheduler. Systems needing individual `after`/`before` constraints or
+  /// their own condition still register through [AppBuilder.addSystem].
+  AppBuilder addSystems(
+    ScheduleLabel schedule,
+    List<SystemDescriptor> descriptors, {
+    RunCondition? runIf,
+    bool chained = false,
+  }) {
+    for (var i = 0; i < descriptors.length; i++) {
+      addSystem(
+        descriptors[i],
+        schedule: schedule,
+        after: chained && i > 0
+            ? <SystemDescriptor>[descriptors[i - 1]]
+            : const <SystemDescriptor>[],
+        runIf: runIf,
+      );
+    }
+    return this;
+  }
+}

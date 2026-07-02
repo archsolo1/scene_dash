@@ -76,6 +76,35 @@ final cleanupRocksSystem = SystemDescriptor(
   () => $CleanupRocksSystemAdapter(const CleanupRocksSystem()),
 );
 
+class $ResetRocksOnRunStartAdapter
+    implements SystemAdapter, SystemAccessProvider {
+  late final RockSpawner _p0;
+
+  @override
+  void initialize(World world) {
+    _p0 = world.resources.get<RockSpawner>();
+  }
+
+  @override
+  SystemAccess get access =>
+      const SystemAccess(reads: <Type>{}, writes: <Type>{});
+
+  @override
+  void run() {
+    resetRocksOnRunStart(_p0);
+  }
+}
+
+/// Schedulable descriptor for [resetRocksOnRunStart]. Pass to `app.addSystem` and reference in
+/// `after`/`before`.
+final resetRocksOnRunStartSystem = SystemDescriptor(
+  const SystemRef(
+    'package:scene_game/rocks/rocks.dart',
+    'resetRocksOnRunStart',
+  ),
+  () => $ResetRocksOnRunStartAdapter(),
+);
+
 class $UpdateRockHitReactionsAdapter
     implements SystemAdapter, SystemAccessProvider {
   late final Query2<RockHitReaction, RockVisuals> _p0;
@@ -185,5 +214,6 @@ mixin _$RockBundle implements SceneDashBundle {
     world.ensureObjectStore<SceneNodeRef>().insert(entity.index, self.node);
     world.ensureTagStore<PhysicsDriven>().add(entity.index);
     world.ensureObjectStore<RockVisuals>().insert(entity.index, self.visuals);
+    world.ensureObjectStore<DespawnOnExit>().insert(entity.index, self.scope);
   }
 }

@@ -22,6 +22,7 @@ library;
 
 export 'src/ecs_frame_loop.dart';
 export 'src/game.dart';
+export 'src/node_transform_ops.dart';
 export 'src/physics_event_bridge.dart';
 export 'src/physics_plugin.dart';
 export 'src/scene_commands.dart';

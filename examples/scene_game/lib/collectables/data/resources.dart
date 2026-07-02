@@ -5,55 +5,59 @@ final class CollectableSpawner {
   CollectableSpawner({int? seed}) : random = math.Random(seed);
 
   final math.Random random;
-  double _accumulator = 0;
+  final GameTimer _cadence = GameTimer.repeating(shieldPickupInterval);
 
   bool tick(double dt) {
-    _accumulator += dt;
-    if (_accumulator >= shieldPickupInterval) {
-      _accumulator = 0;
-      return true;
-    }
-    return false;
+    _cadence.tick(dt);
+    return _cadence.justFinished;
   }
 
   double nextLane() =>
       (random.nextDouble() * 2 - 1) * shieldPickupSpawnHalfWidth;
 
-  void reset() => _accumulator = 0;
+  void reset() => _cadence.reset();
 }
 
 /// The single global shield; [ShieldView] lets the HUD read it without
 /// depending on the collectables feature.
+///
+/// A countdown over a [GameTimer]: the timer runs *up* toward expiry, so
+/// "remaining" is [GameTimer.remaining], activation is a [GameTimer.reset],
+/// and the deflect cost is served by ticking the timer forward.
 final class ShieldState implements ShieldView {
-  double _remaining = 0;
+  ShieldState() {
+    _expire();
+  }
+
+  final GameTimer _life = GameTimer(shieldDuration);
 
   @override
-  bool get active => _remaining > 0;
+  bool get active => !_life.finished;
 
-  double get remaining => _remaining;
-
-  @override
-  double get normalized => (_remaining / shieldDuration).clamp(0.0, 1.0);
+  double get remaining => _life.remaining;
 
   @override
-  bool get expiringSoon => active && _remaining <= shieldWarningWindow;
+  double get normalized => 1 - _life.fraction;
+
+  @override
+  bool get expiringSoon => active && _life.remaining <= shieldWarningWindow;
 
   /// Activates or refreshes the shield to its full duration.
-  void activate() => _remaining = shieldDuration;
+  void activate() => _life.reset();
 
-  void tick(double dt) {
-    if (_remaining <= 0) return;
-    _remaining -= dt;
-    if (_remaining < 0) _remaining = 0;
-  }
+  void tick(double dt) => _life.tick(dt);
 
   /// Deflecting a rock consumes some remaining time.
-  void absorbHit() {
-    _remaining -= shieldDeflectTimeCost;
-    if (_remaining < 0) _remaining = 0;
-  }
+  void absorbHit() => _life.tick(shieldDeflectTimeCost);
 
-  void reset() => _remaining = 0;
+  void reset() => _expire();
+
+  /// Fast-forwards the timer to finished, so a fresh/reset shield is down.
+  void _expire() {
+    _life
+      ..reset()
+      ..tick(shieldDuration);
+  }
 }
 
 const int _deflectCapacity = 40;

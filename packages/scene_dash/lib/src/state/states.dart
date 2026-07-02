@@ -33,6 +33,7 @@
 /// independently.
 library;
 
+import '../annotations/object_component.dart';
 import '../schedule/schedule_label.dart';
 import '../schedule/system_registration.dart';
 import '../world/world.dart';
@@ -89,7 +90,10 @@ RunCondition inState<S extends Object>(S value) =>
 ///
 /// This is how region/mode teardown should work by default: everything a
 /// dungeon spawns is scoped to the dungeon, and leaving it needs no manual
-/// cleanup system.
+/// cleanup system. Bundles can carry it as a field, so a spawn recipe scopes
+/// itself (annotated `@ObjectComponent` so the generator accepts that, like
+/// `SceneNodeRef`).
+@ObjectComponent()
 final class DespawnOnExit {
   /// The state value this entity lives under.
   final Object value;

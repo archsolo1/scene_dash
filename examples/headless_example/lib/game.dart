@@ -77,7 +77,7 @@ final class SpawnPlayerSystem extends GameSystem {
   void run(Commands commands, EventWriter<PlayerSpawned> spawned) {
     final entity = commands.spawn(
       PlayerBundle(position: Position(0, 0), velocity: const Velocity(1, 2)),
-    );
+    ).entity;
     spawned.send(PlayerSpawned(entity));
   }
 }

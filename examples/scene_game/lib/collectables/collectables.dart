@@ -7,6 +7,7 @@ import 'package:scene_dash/scene_dash.dart';
 import 'package:scene_dash_flutter_scene/scene_dash_flutter_scene.dart';
 import 'package:vector_math/vector_math.dart' show Matrix4, Vector3, Vector4;
 
+import '../fx/anim.dart';
 import '../fx/instanced_pool.dart';
 import '../game/game_state.dart';
 import '../game/physics_layers.dart';
@@ -36,6 +37,10 @@ final class CollectablesPlugin extends Plugin {
       ..insertResource<ShieldState>(shield)
       ..insertResource<CollectableSpawner>(CollectableSpawner())
       ..insertResource<ShieldDeflectVfx>(ShieldDeflectVfx())
+      ..addSystem(
+        resetCollectablesOnRunStartSystem,
+        schedule: OnEnter(GameStatus.playing),
+      )
       // fixedPrePhysics so the body is mounted before the native step.
       ..addSystem(
         spawnShieldPickupsSystem,

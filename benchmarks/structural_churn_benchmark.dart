@@ -92,7 +92,8 @@ void _recordMixed(World world, List<Entity> entities, int count) {
       ..remove<C2>(entity)
       ..insert<C2>(entity, C2(i))
       ..despawn(entity);
-    entities[i % entities.length] = world.commands.spawn(const Bundle2(0));
+    entities[i % entities.length] =
+        world.commands.spawn(const Bundle2(0)).entity;
   }
 }
 

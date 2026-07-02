@@ -109,7 +109,7 @@ void main(List<String> args) {
     setup: () {
       final w = _freshWorld();
       for (var i = 0; i < n; i++) {
-        final e = w.commands.spawn();
+        final e = w.commands.spawn().entity;
         w.commands.insert<Position>(e, Position(0, 0));
       }
       return w;

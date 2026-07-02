@@ -17,7 +17,7 @@ void updateChargeVisuals(
   v.chargePhase += time.delta * (6 + 10 * c);
   // Eased show factor so release/cancel shrinks the orb and beam cleanly.
   final show = v.chargeShow =
-      _approach(v.chargeShow, charging ? 1.0 : 0.0, time.delta * 12);
+      approach(v.chargeShow, charging ? 1.0 : 0.0, time.delta * 12);
 
   final pulse = 1 + 0.08 * math.sin(v.chargePhase);
   final flash = (charging && c > 0.82)
@@ -58,7 +58,7 @@ void _updateChargeOrb(
   required double mix,
   required double flash,
 }) {
-  _placeUniform(v.chargeOrb, 0, 0, 0, 0);
+  v.chargeOrb.setLocalUniform(0, 0, 0, 0);
   v.chargeOrbMaterial.emissiveFactor = Vector4(
     (0.3 + 0.85 * mix) * flash,
     (0.9 - 0.35 * mix) * flash,
@@ -84,8 +84,7 @@ void _updateChargeBeam(
   required double beamHeight,
 }) {
   final beamThick = (0.06 + 0.08 * c) * show * pulse;
-  _place(
-    v.chargeBeam,
+  v.chargeBeam.setLocalTRS(
     0,
     beamBaseY + beamHeight * 0.5,
     0,
@@ -141,6 +140,6 @@ void _updateChargeMotes(
     final z = math.sin(angle) * moteRadius * wobble;
     final y = beamBaseY + riseExtent * rise;
     final size = (0.65 + 0.35 * math.sin(v.chargePhase + i)) * show;
-    _placeUniform(v.chargeMotes[i], x, y, z, size);
+    v.chargeMotes[i].setLocalUniform(x, y, z, size);
   }
 }

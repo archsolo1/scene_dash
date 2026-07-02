@@ -12,6 +12,9 @@ final class ShieldPickupBundle with _$ShieldPickupBundle {
   final SceneNodeRef node;
   final PhysicsDriven physics;
 
+  /// Scoped to the run: exiting `playing` despawns any pickup in flight.
+  final DespawnOnExit scope;
+
   factory ShieldPickupBundle({required double x}) {
     final glow = _makeGlow();
     return ShieldPickupBundle._(SceneNodeRef(_makeNode(x, glow)), glow);
@@ -22,7 +25,8 @@ final class ShieldPickupBundle with _$ShieldPickupBundle {
       shieldPickup = const ShieldPickup(),
       state = ShieldPickupState(),
       visuals = ShieldPickupVisuals(glow),
-      physics = const PhysicsDriven();
+      physics = const PhysicsDriven(),
+      scope = const DespawnOnExit(GameStatus.playing);
 
   static final Material _material = PhysicallyBasedMaterial()
     ..baseColorFactor = Vector4(0.25, 0.7, 1.0, 1)

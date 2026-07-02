@@ -17,7 +17,7 @@ void main() {
     double shieldNormalized = 0,
     bool shieldExpiring = false,
   }) {
-    return GameHudSnapshot(
+    return (
       status: status,
       survivedTenths: 0,
       lostReason: null,

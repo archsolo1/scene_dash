@@ -3,20 +3,22 @@ part of '../rocks.dart';
 /// Spawn cadence plus RNG, injected as a resource.
 final class RockSpawner {
   final math.Random random;
-  double _accumulator = 0;
+
+  /// Difficulty-scaled cadence: the duration is retuned each step before the
+  /// tick, and `completionsThisTick` is exactly "rocks due", including the
+  /// catch-up after a frame hitch.
+  final GameTimer _cadence = GameTimer.repeating(
+    rockSpawnIntervalForSurvival(0),
+  );
 
   RockSpawner({int? seed}) : random = math.Random(seed);
 
   /// Returns the number of rocks due this step.
   int tick(double dt, {required double survived}) {
-    _accumulator += dt;
-    var due = 0;
-    final interval = rockSpawnIntervalForSurvival(survived);
-    while (_accumulator >= interval) {
-      _accumulator -= interval;
-      due++;
-    }
-    return due;
+    _cadence
+      ..duration = rockSpawnIntervalForSurvival(survived)
+      ..tick(dt);
+    return _cadence.completionsThisTick;
   }
 
   double nextLane() => (random.nextDouble() * 2 - 1) * rockSpawnHalfWidth;
@@ -25,7 +27,7 @@ final class RockSpawner {
     return random.nextDouble() < flamingRockChanceForSurvival(survived);
   }
 
-  void reset() => _accumulator = 0;
+  void reset() => _cadence.reset();
 }
 
 /// Shared instanced pool for every flaming rock's trail puffs — one node and

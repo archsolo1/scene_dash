@@ -2,7 +2,10 @@ part of '../projectiles.dart';
 
 // Reused scratch so the update loop allocates nothing per projectile.
 final Vector3 _projectilePosition = Vector3.zero();
+final Vector3 _rockHitPosition = Vector3.zero();
 
+/// Gated to `inState(GameStatus.playing)` at registration; the run-end
+/// cleanup lives in [stopBlasterOnRunEnd] on `OnExit`.
 @System()
 final class ShootProjectilesSystem extends GameSystem {
   const ShootProjectilesSystem();
@@ -11,17 +14,10 @@ final class ShootProjectilesSystem extends GameSystem {
     Commands commands,
     @Query(requires: [Player]) Single<SceneNodeRef> player,
     @Resource() InputState input,
-    @Resource() CurrentState<GameStatus> status,
     @Resource() Blaster blaster,
     @Resource() LockOnReticle reticle,
     @Resource() FixedTime time,
   ) {
-    if (status.value != GameStatus.playing) {
-      blaster.reset();
-      input.clearFireTransitions();
-      return;
-    }
-
     final shots = blaster.update(
       pressed: input.firePressed,
       released: input.fireReleased,
@@ -36,26 +32,41 @@ final class ShootProjectilesSystem extends GameSystem {
       ..y += playerBodyVisualRadius * 0.45
       ..z -= playerBodyVisualRadius + projectileRadius + 0.08;
 
+    // The bundle itself scopes each shot to the run (DespawnOnExit field).
     final charged = shots.charged;
     if (charged != null) {
       final strength = math.max(charged, minChargedCharge);
-      _spawnScoped(commands, ProjectileBundle(position: base, charge: strength));
+      commands.spawn(ProjectileBundle(position: base, charge: strength));
       reticle.flashFired();
     } else {
       for (var i = 0; i < shots.burst; i++) {
-        _spawnScoped(commands, ProjectileBundle(position: base));
+        commands.spawn(ProjectileBundle(position: base));
       }
     }
   }
+}
 
-  /// Spawns a projectile scoped to the run, so exiting `playing` despawns it.
-  static void _spawnScoped(Commands commands, ProjectileBundle bundle) {
-    final entity = commands.spawn(bundle);
-    commands.insert<DespawnOnExit>(
-      entity,
-      const DespawnOnExit(GameStatus.playing),
-    );
-  }
+/// Projectiles reset their own state when a run (re)starts.
+@System()
+void resetProjectilesOnRunStart(
+  @Resource() Blaster blaster,
+  @Resource() ImpactVfx impactVfx,
+  @Resource() LockOnReticle reticle,
+) {
+  blaster.reset();
+  impactVfx.reset();
+  reticle.reset();
+}
+
+/// Leaving the run aborts any in-flight charge and clears the one-frame fire
+/// transitions, so a held button cannot fire into the lose screen.
+@System()
+void stopBlasterOnRunEnd(
+  @Resource() Blaster blaster,
+  @Resource() InputState input,
+) {
+  blaster.reset();
+  input.clearFireTransitions();
 }
 
 @System()
@@ -74,9 +85,8 @@ final class UpdateProjectilesSystem extends GameSystem {
     final dt = time.delta;
     projectiles.each((entity, projectile, binding) {
       projectile.age += dt;
-      // globalTransform returns the node's cached matrix — no allocation.
-      final m = binding.node.globalTransform.storage;
-      final position = _projectilePosition..setValues(m[12], m[13], m[14]);
+      binding.node.globalTranslationInto(_projectilePosition);
+      final position = _projectilePosition;
 
       if (projectile.age >= projectileLifetime ||
           position.z < -rampLength * 0.5 - 2 ||
@@ -124,11 +134,7 @@ final class UpdateProjectilesSystem extends GameSystem {
     );
     var hitCount = 0;
     for (final hit in hits) {
-      final collider = hit.collider;
-      if (collider is! RapierCollider ||
-          collider.collisionLayer & PhysicsLayers.rock == 0) {
-        continue;
-      }
+      if (!colliderOnLayer(hit.collider, PhysicsLayers.rock)) continue;
 
       final entity = index.entityOf(hit.node);
       if (projectile.charged) {
@@ -137,8 +143,8 @@ final class UpdateProjectilesSystem extends GameSystem {
         }
       }
 
-      final rockPosition = hit.node.globalTransform.getTranslation();
-      final xAway = rockPosition.x - position.x;
+      hit.node.globalTranslationInto(_rockHitPosition);
+      final xAway = _rockHitPosition.x - position.x;
       final knock = projectileKnockbackForCharge(projectile.charge);
       final lift = projectileLiftForCharge(projectile.charge);
       final spin = projectileSpinForCharge(projectile.charge);
@@ -161,7 +167,7 @@ final class UpdateProjectilesSystem extends GameSystem {
           ),
         );
       }
-      vfx.emit(rockPosition, strength: projectile.charge);
+      vfx.emit(_rockHitPosition, strength: projectile.charge);
       hitCount++;
       if (!projectile.charged || hitCount >= chargedProjectileMaxHits) break;
     }
@@ -169,28 +175,3 @@ final class UpdateProjectilesSystem extends GameSystem {
   }
 }
 
-// --- Shared helpers used across the projectile parts (charge VFX, reticle) ---
-
-double _approach(double value, double target, double rate) {
-  final a = rate.clamp(0.0, 1.0);
-  return value + (target - value) * a;
-}
-
-void _placeUniform(Node node, double x, double y, double z, double s) =>
-    _place(node, x, y, z, s, s, s);
-
-void _place(
-  Node node,
-  double x,
-  double y,
-  double z,
-  double sx,
-  double sy,
-  double sz,
-) {
-  final m = node.localTransform
-    ..setIdentity()
-    ..setTranslationRaw(x, y, z)
-    ..scaleByDouble(sx, sy, sz, 1);
-  node.localTransform = m;
-}

@@ -105,6 +105,54 @@ final animateCrabLegsSystem = SystemDescriptor(
   () => $AnimateCrabLegsAdapter(),
 );
 
+class $ResetPlayerOnRunStartAdapter
+    implements SystemAdapter, SystemAccessProvider {
+  late final Single<SceneNodeRef> _p0;
+  late final Single<PlayerVisuals> _p1;
+  late final PlayerKnockback _p2;
+
+  @override
+  void initialize(World world) {
+    world.ensureObjectStore<SceneNodeRef>();
+    world.ensureTagStore<Player>();
+    world.ensureObjectStore<PlayerVisuals>();
+    _p0 = Single<SceneNodeRef>(
+      world.query1<SceneNodeRef>(
+        withTypes: const <Type>[Player],
+        withoutTypes: const <Type>[],
+      ),
+    );
+    _p1 = Single<PlayerVisuals>(
+      world.query1<PlayerVisuals>(
+        withTypes: const <Type>[Player],
+        withoutTypes: const <Type>[],
+      ),
+    );
+    _p2 = world.resources.get<PlayerKnockback>();
+  }
+
+  @override
+  SystemAccess get access => const SystemAccess(
+    reads: <Type>{},
+    writes: <Type>{SceneNodeRef, PlayerVisuals},
+  );
+
+  @override
+  void run() {
+    resetPlayerOnRunStart(_p0, _p1, _p2);
+  }
+}
+
+/// Schedulable descriptor for [resetPlayerOnRunStart]. Pass to `app.addSystem` and reference in
+/// `after`/`before`.
+final resetPlayerOnRunStartSystem = SystemDescriptor(
+  const SystemRef(
+    'package:scene_game/player/player.dart',
+    'resetPlayerOnRunStart',
+  ),
+  () => $ResetPlayerOnRunStartAdapter(),
+);
+
 mixin _$PlayerBundle implements SceneDashBundle {
   @override
   void insertInto(World world, Entity entity) {

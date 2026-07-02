@@ -74,114 +74,70 @@ abstract interface class ShieldView {
 /// Run data (timer, loss reason). The playing/lost mode itself lives in the
 /// `GameStatus` state machine, not here.
 final class GameState {
+  final GameStopwatch _runClock = GameStopwatch();
+
   /// Seconds survived this run.
-  double survived = 0;
+  double get survived => _runClock.elapsed;
 
   String? lostReason;
 
   int get survivedTenths => (survived * 10).floor();
 
-  void addSurvival(double delta) {
-    survived += delta;
-  }
+  void addSurvival(double delta) => _runClock.tick(delta);
 
   /// Records why the run ended; the first recorded reason wins.
   void recordLoss(String reason) => lostReason ??= reason;
 
   void reset() {
-    survived = 0;
+    _runClock.reset();
     lostReason = null;
   }
 }
 
-@immutable
-final class GameHudSnapshot {
-  const GameHudSnapshot({
-    required this.status,
-    required this.survivedTenths,
-    required this.lostReason,
-    required this.fps,
-    required this.blasterCharge01,
-    required this.blasterCooldown01,
-    required this.blasterCharging,
-    required this.blasterReady,
-    required this.shieldActive,
-    required this.shieldNormalized,
-    required this.shieldExpiring,
-  });
+/// What the HUD renders, as a record: structural `==` for free, so the
+/// `ValueNotifier` only notifies when something visible actually changed.
+typedef GameHudSnapshot = ({
+  GameStatus status,
+  int survivedTenths,
+  String? lostReason,
+  int fps,
+  double blasterCharge01,
+  double blasterCooldown01,
+  bool blasterCharging,
+  bool blasterReady,
+  bool shieldActive,
+  double shieldNormalized,
+  bool shieldExpiring,
+});
 
-  factory GameHudSnapshot.from(
-    GameState state, {
-    required GameStatus status,
-    required int fps,
-    BlasterView? blaster,
-    ShieldView? shield,
-  }) {
-    return GameHudSnapshot(
-      status: status,
-      survivedTenths: state.survivedTenths,
-      lostReason: state.lostReason,
-      fps: fps,
-      // Quantised to whole percent so the HUD only rebuilds on a visible step.
-      blasterCharge01: _centi(blaster?.charge01 ?? 0),
-      blasterCooldown01: _centi(blaster?.cooldown01 ?? 0),
-      blasterCharging: blaster?.isCharging ?? false,
-      blasterReady: blaster?.isReady ?? true,
-      shieldActive: shield?.active ?? false,
-      shieldNormalized: _centi(shield?.normalized ?? 0),
-      shieldExpiring: shield?.expiringSoon ?? false,
-    );
-  }
-
-  final GameStatus status;
-  final int survivedTenths;
-  final String? lostReason;
-  final int fps;
-
-  final double blasterCharge01;
-  final double blasterCooldown01;
-  final bool blasterCharging;
-  final bool blasterReady;
-
-  final bool shieldActive;
-  final double shieldNormalized;
-  final bool shieldExpiring;
-
+extension GameHudSnapshotLabels on GameHudSnapshot {
   String get survivedLabel => (survivedTenths / 10).toStringAsFixed(1);
+}
 
-  static double _centi(double v) => (v.clamp(0.0, 1.0) * 100).round() / 100;
-
-  @override
-  bool operator ==(Object other) {
-    return other is GameHudSnapshot &&
-        other.status == status &&
-        other.survivedTenths == survivedTenths &&
-        other.lostReason == lostReason &&
-        other.fps == fps &&
-        other.blasterCharge01 == blasterCharge01 &&
-        other.blasterCooldown01 == blasterCooldown01 &&
-        other.blasterCharging == blasterCharging &&
-        other.blasterReady == blasterReady &&
-        other.shieldActive == shieldActive &&
-        other.shieldNormalized == shieldNormalized &&
-        other.shieldExpiring == shieldExpiring;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    status,
-    survivedTenths,
-    lostReason,
-    fps,
-    blasterCharge01,
-    blasterCooldown01,
-    blasterCharging,
-    blasterReady,
-    shieldActive,
-    shieldNormalized,
-    shieldExpiring,
+GameHudSnapshot buildHudSnapshot(
+  GameState state, {
+  required GameStatus status,
+  required int fps,
+  BlasterView? blaster,
+  ShieldView? shield,
+}) {
+  return (
+    status: status,
+    survivedTenths: state.survivedTenths,
+    lostReason: state.lostReason,
+    fps: fps,
+    // Quantised to whole percent so the HUD only rebuilds on a visible step.
+    blasterCharge01: _centi(blaster?.charge01 ?? 0),
+    blasterCooldown01: _centi(blaster?.cooldown01 ?? 0),
+    blasterCharging: blaster?.isCharging ?? false,
+    blasterReady: blaster?.isReady ?? true,
+    shieldActive: shield?.active ?? false,
+    shieldNormalized: _centi(shield?.normalized ?? 0),
+    shieldExpiring: shield?.expiringSoon ?? false,
   );
 }
+
+double _centi(double v) => (v.clamp(0.0, 1.0) * 100).round() / 100;
 
 final class HudState extends ValueNotifier<GameHudSnapshot> {
   HudState(
@@ -193,7 +149,7 @@ final class HudState extends ValueNotifier<GameHudSnapshot> {
        _blaster = blaster,
        _shield = shield,
        super(
-         GameHudSnapshot.from(
+         buildHudSnapshot(
            _game,
            status: phase.value,
            fps: 0,
@@ -222,7 +178,7 @@ final class HudState extends ValueNotifier<GameHudSnapshot> {
   }
 
   void refresh() {
-    final next = GameHudSnapshot.from(
+    final next = buildHudSnapshot(
       _game,
       status: _phase.value,
       fps: _fps,

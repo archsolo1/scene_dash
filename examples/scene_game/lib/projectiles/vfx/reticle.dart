@@ -1,5 +1,8 @@
 part of '../projectiles.dart';
 
+// Reused scratch so the per-frame targeting pass allocates nothing.
+final Vector3 _reticlePlayerPos = Vector3.zero();
+
 @System()
 void spawnLockOnReticle(
   @Resource() Scene scene,
@@ -38,7 +41,8 @@ void updateLockOnReticle(
   reticle.firedFlash = math.max(0, reticle.firedFlash - dt / 0.25);
   reticle.impactFlash = math.max(0, reticle.impactFlash - dt / 0.3);
 
-  final pos = player.value.node.globalTransform.getTranslation();
+  player.value.node.globalTranslationInto(_reticlePlayerPos);
+  final pos = _reticlePlayerPos;
 
   // Nearest rock ahead of the player within the firing lane.
   var bestZ = -1e9;
@@ -62,8 +66,8 @@ void updateLockOnReticle(
   final showing =
       hasRock &&
       (charging || reticle.firedFlash > 0.01 || reticle.impactFlash > 0.01);
-  reticle.opacity = _approach(reticle.opacity, showing ? 1.0 : 0.0, dt * 10);
-  reticle.charge01 = _approach(
+  reticle.opacity = approach(reticle.opacity, showing ? 1.0 : 0.0, dt * 10);
+  reticle.charge01 = approach(
     reticle.charge01,
     charging ? blaster.charge01 : 0.0,
     dt * 12,

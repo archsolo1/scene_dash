@@ -196,6 +196,63 @@ void main() {
       expect(log, <String>['shutdown', 'cleanup-b', 'cleanup-a']);
     });
   });
+
+  group('addSystems (batch registration)', () {
+    SystemDescriptor descriptor(String name, List<String> log) =>
+        SystemDescriptor(
+          SystemRef('package:test/batch.dart', name),
+          () => RecordingAdapter(name, log),
+        );
+
+    test('registers every descriptor into the schedule', () {
+      final log = <String>[];
+      final app = App()
+        ..addSystems(Schedules.update, [
+          descriptor('a', log),
+          descriptor('b', log),
+          descriptor('c', log),
+        ]);
+      app.start();
+      app.runSchedule(Schedules.update);
+      expect(log, <String>['a', 'b', 'c']);
+    });
+
+    test('chained adds sequential after constraints', () {
+      final log = <String>[];
+      final a = descriptor('a', log);
+      final b = descriptor('b', log);
+      // Registration order alone would also run a -> b, so prove the edge is
+      // real: an explicit contradictory constraint must now form a cycle.
+      final app = App()
+        ..addSystems(Schedules.update, [a, b], chained: true)
+        ..addSystem(
+          descriptor('straggler', log),
+          schedule: Schedules.update,
+          after: [b],
+          before: [a],
+        );
+      expect(app.start, throwsStateError);
+    });
+
+    test('one runIf gates the whole batch', () {
+      final log = <String>[];
+      final gate = _Gate();
+      final app = App()
+        ..insertResource<_Gate>(gate)
+        ..addSystems(
+          Schedules.update,
+          [descriptor('a', log), descriptor('b', log)],
+          runIf: (world) => world.resource<_Gate>().open,
+        );
+      app.start();
+      app.runSchedule(Schedules.update);
+      expect(log, isEmpty);
+
+      gate.open = true;
+      app.runSchedule(Schedules.update);
+      expect(log, <String>['a', 'b']);
+    });
+  });
 }
 
 final class _EmptyPlugin extends Plugin {

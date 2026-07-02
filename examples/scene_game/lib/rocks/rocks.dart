@@ -30,12 +30,18 @@ final class RocksPlugin extends Plugin {
       ..insertResource<RockTrails>(RockTrails())
       ..addSystem(spawnRockTrailsSystem, schedule: Schedules.startup)
       ..addSystem(
+        resetRocksOnRunStartSystem,
+        schedule: OnEnter(GameStatus.playing),
+      )
+      ..addSystem(
         spawnRocksSystem,
         schedule: Schedules.fixedPrePhysics,
         runIf: inState(GameStatus.playing),
       )
-      ..addSystem(cleanupRocksSystem, schedule: Schedules.update)
-      ..addSystem(updateRockHitReactionsSystem, schedule: Schedules.update)
-      ..addSystem(updateRockTrailsSystem, schedule: Schedules.update);
+      ..addSystems(Schedules.update, [
+        cleanupRocksSystem,
+        updateRockHitReactionsSystem,
+        updateRockTrailsSystem,
+      ]);
   }
 }

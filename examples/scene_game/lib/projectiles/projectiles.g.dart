@@ -14,10 +14,9 @@ class $ShootProjectilesSystemAdapter
   late final Commands _p0;
   late final Single<SceneNodeRef> _p1;
   late final InputState _p2;
-  late final CurrentState<GameStatus> _p3;
-  late final Blaster _p4;
-  late final LockOnReticle _p5;
-  late final FixedTime _p6;
+  late final Blaster _p3;
+  late final LockOnReticle _p4;
+  late final FixedTime _p5;
 
   @override
   void initialize(World world) {
@@ -31,10 +30,9 @@ class $ShootProjectilesSystemAdapter
       ),
     );
     _p2 = world.resources.get<InputState>();
-    _p3 = world.resources.get<CurrentState<GameStatus>>();
-    _p4 = world.resources.get<Blaster>();
-    _p5 = world.resources.get<LockOnReticle>();
-    _p6 = world.resources.get<FixedTime>();
+    _p3 = world.resources.get<Blaster>();
+    _p4 = world.resources.get<LockOnReticle>();
+    _p5 = world.resources.get<FixedTime>();
   }
 
   @override
@@ -43,7 +41,7 @@ class $ShootProjectilesSystemAdapter
 
   @override
   void run() {
-    _system.run(_p0, _p1, _p2, _p3, _p4, _p5, _p6);
+    _system.run(_p0, _p1, _p2, _p3, _p4, _p5);
   }
 }
 
@@ -106,6 +104,70 @@ final updateProjectilesSystem = SystemDescriptor(
     'UpdateProjectilesSystem',
   ),
   () => $UpdateProjectilesSystemAdapter(const UpdateProjectilesSystem()),
+);
+
+class $ResetProjectilesOnRunStartAdapter
+    implements SystemAdapter, SystemAccessProvider {
+  late final Blaster _p0;
+  late final ImpactVfx _p1;
+  late final LockOnReticle _p2;
+
+  @override
+  void initialize(World world) {
+    _p0 = world.resources.get<Blaster>();
+    _p1 = world.resources.get<ImpactVfx>();
+    _p2 = world.resources.get<LockOnReticle>();
+  }
+
+  @override
+  SystemAccess get access =>
+      const SystemAccess(reads: <Type>{}, writes: <Type>{});
+
+  @override
+  void run() {
+    resetProjectilesOnRunStart(_p0, _p1, _p2);
+  }
+}
+
+/// Schedulable descriptor for [resetProjectilesOnRunStart]. Pass to `app.addSystem` and reference in
+/// `after`/`before`.
+final resetProjectilesOnRunStartSystem = SystemDescriptor(
+  const SystemRef(
+    'package:scene_game/projectiles/projectiles.dart',
+    'resetProjectilesOnRunStart',
+  ),
+  () => $ResetProjectilesOnRunStartAdapter(),
+);
+
+class $StopBlasterOnRunEndAdapter
+    implements SystemAdapter, SystemAccessProvider {
+  late final Blaster _p0;
+  late final InputState _p1;
+
+  @override
+  void initialize(World world) {
+    _p0 = world.resources.get<Blaster>();
+    _p1 = world.resources.get<InputState>();
+  }
+
+  @override
+  SystemAccess get access =>
+      const SystemAccess(reads: <Type>{}, writes: <Type>{});
+
+  @override
+  void run() {
+    stopBlasterOnRunEnd(_p0, _p1);
+  }
+}
+
+/// Schedulable descriptor for [stopBlasterOnRunEnd]. Pass to `app.addSystem` and reference in
+/// `after`/`before`.
+final stopBlasterOnRunEndSystem = SystemDescriptor(
+  const SystemRef(
+    'package:scene_game/projectiles/projectiles.dart',
+    'stopBlasterOnRunEnd',
+  ),
+  () => $StopBlasterOnRunEndAdapter(),
 );
 
 class $UpdateChargeVisualsAdapter
@@ -325,5 +387,6 @@ mixin _$ProjectileBundle implements SceneDashBundle {
     world.ensureObjectStore<Projectile>().insert(entity.index, self.projectile);
     world.ensureObjectStore<SceneNodeRef>().insert(entity.index, self.node);
     world.ensureTagStore<PhysicsDriven>().add(entity.index);
+    world.ensureObjectStore<DespawnOnExit>().insert(entity.index, self.scope);
   }
 }

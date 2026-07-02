@@ -191,12 +191,10 @@ the change to a safe point so it never breaks a running query:
 ```dart
 @System()
 void spawnEnemy(Commands commands) {
-  final enemy = commands.spawn();
-  commands
-      .entity(enemy)
-      .insert(const Enemy())
-      .insert(Health(30))
-      .insert(Velocity(0, -2));
+  commands.spawn()
+    ..insert(const Enemy())
+    ..insert(Health(30))
+    ..insert(Velocity(0, -2));
 }
 ```
 
@@ -211,6 +209,19 @@ bool playing(World world) =>
     world.resource<GameState>().status == GameStatus.playing;
 
 app.addSystem(movePlayerSystem, schedule: Schedules.fixedPrePhysics, runIf: playing);
+```
+
+Conditions compose with `.and`/`.or`, invert with `not`, and `hasEvents<T>()`
+passes while an event channel has anything buffered. Several systems sharing
+one schedule and condition can register in a single `addSystems` call
+(`chained: true` orders them one after another, like Bevy's `.chain()`):
+
+```dart
+app.addSystems(Schedules.update, runIf: playing.and(not(cutsceneActive)), [
+  tickActionStateSystem,
+  resolveHitsSystem,
+  applyDamageSystem,
+], chained: true);
 ```
 
 ### Components and tags
@@ -343,6 +354,36 @@ the state despawns them automatically (after its `OnExit` systems run), so a
 dungeon can spawn freely and needs no manual cleanup system. Machines of
 different enum types are orthogonal and coexist — a `PauseState` transitions
 independently of the `GamePhase`.
+
+### Time
+
+Three standard resources cover time. `FrameTime.delta` is the per-frame game
+delta for `update` systems; `FixedTime.delta` is the fixed timestep for
+`fixedPrePhysics` systems. The third, `GameClock`, controls how game time
+relates to wall time — pause, slow motion, and hitstop are all one resource:
+
+```dart
+@System()
+void resolveHits(@Resource() GameClock clock, EventReader<HitEvent> hits) {
+  for (final hit in hits.read()) {
+    clock.freezeFor(0.06); // hitstop: freeze game time for 60ms of wall time
+  }
+}
+```
+
+`clock.timeScale = 0.5` is slow motion, `clock.paused = true` a hard stop.
+The scale is applied before the delta reaches the scene tick, so physics
+stepping, animations, and gameplay slow or halt together — and the fixed
+timestep itself never changes (slow motion just runs fewer fixed steps, so
+fixed-step gameplay stays deterministic). Systems run in every case; anything
+that should keep moving while game time is stopped — HUD, camera shake, pause
+menus — integrates with `FrameTime.unscaledDelta` instead of `delta`.
+
+For durations *inside* gameplay — cooldowns, attack phases, spawn intervals —
+`GameTimer` (one-shot or repeating) and `GameStopwatch` are tick-driven value
+types: feed them `delta` each frame and read `finished`, `justFinished`, or
+`fraction`. Because they consume the scaled delta, they pause and slow with
+the game for free.
 
 ## Rendering
 

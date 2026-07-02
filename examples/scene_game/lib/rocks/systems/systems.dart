@@ -1,5 +1,8 @@
 part of '../rocks.dart';
 
+// Reused scratch so per-rock position reads allocate nothing.
+final Vector3 _rockScratch = Vector3.zero();
+
 /// Drops new rocks at the top of the ramp each fixed step.
 @System()
 final class SpawnRocksSystem extends GameSystem {
@@ -15,13 +18,9 @@ final class SpawnRocksSystem extends GameSystem {
     for (var i = 0; i < due; i++) {
       final x = spawner.nextLane();
       final flaming = spawner.nextIsFlaming(game.survived);
-      final entity = commands.spawn(RockBundle(x: x, flaming: flaming));
-      // Scoped to the run: losing (exiting `playing`) despawns every rock.
-      commands.insert<DespawnOnExit>(
-        entity,
-        const DespawnOnExit(GameStatus.playing),
-      );
-      if (flaming) commands.insert<Flaming>(entity, const Flaming());
+      // The bundle itself scopes the rock to the run (DespawnOnExit field).
+      final spawned = commands.spawn(RockBundle(x: x, flaming: flaming));
+      if (flaming) spawned.insert<Flaming>(const Flaming());
     }
   }
 }
@@ -36,12 +35,17 @@ final class CleanupRocksSystem extends GameSystem {
     Commands commands,
   ) {
     rocks.each((entity, binding) {
-      if (binding.node.globalTransform.getTranslation().y < rockKillY) {
+      binding.node.globalTranslationInto(_rockScratch);
+      if (_rockScratch.y < rockKillY) {
         commands.despawn(entity);
       }
     });
   }
 }
+
+/// Rocks reset their own spawner cadence when a run (re)starts.
+@System()
+void resetRocksOnRunStart(@Resource() RockSpawner spawner) => spawner.reset();
 
 /// Animates the per-rock flash shell while a hit reaction is active, then drops
 /// the component. Only the child shell is scaled — never the physics-driven
@@ -55,27 +59,19 @@ void updateRockHitReactions(
 ) {
   final dt = time.delta;
   reactions.each((entity, reaction, visuals) {
-    reaction.remaining -= dt;
+    reaction.flash.tick(dt);
     final shell = visuals.shell;
-    if (reaction.remaining <= 0) {
-      _setShellScale(shell, 0);
+    if (reaction.flash.finished) {
+      shell.setLocalUniform(0, 0, 0, 0);
       commands.remove<RockHitReaction>(entity);
       return;
     }
-    final t = (1 - reaction.remaining / rockHitReactionDuration).clamp(0.0, 1.0);
+    final t = reaction.flash.fraction;
     final env = math.sin(t * math.pi);
     final pulse = 1 + 0.1 * math.sin(t * math.pi * 4);
     final peak = 1.15 + 0.55 * reaction.strength;
-    _setShellScale(shell, peak * env * pulse);
+    shell.setLocalUniform(0, 0, 0, peak * env * pulse);
   });
-}
-
-// Mutates in place and re-assigns to trip the node's dirty flag — no allocation.
-void _setShellScale(Node shell, double scale) {
-  final m = shell.localTransform
-    ..setIdentity()
-    ..scaleByDouble(scale, scale, scale, 1);
-  shell.localTransform = m;
 }
 
 @System()

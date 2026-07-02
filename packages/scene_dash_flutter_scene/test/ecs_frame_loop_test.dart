@@ -35,6 +35,7 @@ void main() {
     EcsFrameLoop(app).ensureTimeResources();
     expect(app.world.resources.contains<FrameTime>(), isTrue);
     expect(app.world.resources.contains<FixedTime>(), isTrue);
+    expect(app.world.resources.contains<GameClock>(), isTrue);
 
     // A pre-existing resource is not replaced.
     final app2 = App();
@@ -50,12 +51,65 @@ void main() {
     final loop = EcsFrameLoop(app)..ensureTimeResources();
     app.start();
 
-    loop.frameStart(const Duration(milliseconds: 16), 0.016);
+    final scaled = loop.frameStart(const Duration(milliseconds: 16), 0.016);
     final ft = app.world.resources.get<FrameTime>();
     expect(ft.frame, 1);
     expect(ft.delta, 0.016);
+    expect(ft.unscaledDelta, 0.016);
     expect(ft.elapsed, const Duration(milliseconds: 16));
+    expect(scaled, 0.016);
     expect(log, <String>['frameStart']);
+  });
+
+  test('frameStart applies the GameClock scale to delta only', () {
+    final app = _appWithProbes(<String>[]);
+    final loop = EcsFrameLoop(app)..ensureTimeResources();
+    app.start();
+    app.world.resources.get<GameClock>().timeScale = 0.5;
+
+    final scaled = loop.frameStart(const Duration(milliseconds: 16), 0.016);
+    final ft = app.world.resources.get<FrameTime>();
+    expect(scaled, closeTo(0.008, 1e-12));
+    expect(ft.delta, closeTo(0.008, 1e-12));
+    expect(ft.unscaledDelta, 0.016);
+  });
+
+  test('frameStart returns zero while paused; schedules still run', () {
+    final log = <String>[];
+    final app = _appWithProbes(log);
+    final loop = EcsFrameLoop(app)..ensureTimeResources();
+    app.start();
+    app.world.resources.get<GameClock>().paused = true;
+
+    final scaled = loop.frameStart(const Duration(milliseconds: 16), 0.016);
+    expect(scaled, 0);
+    expect(app.world.resources.get<FrameTime>().delta, 0);
+    expect(app.world.resources.get<FrameTime>().unscaledDelta, 0.016);
+    expect(log, <String>['frameStart']);
+  });
+
+  test('a freeze halts game time and expires on the wall clock', () {
+    final app = _appWithProbes(<String>[]);
+    final loop = EcsFrameLoop(app)..ensureTimeResources();
+    app.start();
+    // A 40ms hitstop: the next two 16ms frames are frozen, the fourth frame
+    // (48ms served) runs at full speed again.
+    app.world.resources.get<GameClock>().freezeFor(0.04);
+
+    expect(loop.frameStart(const Duration(milliseconds: 16), 0.016), 0);
+    expect(loop.frameStart(const Duration(milliseconds: 32), 0.016), 0);
+    expect(loop.frameStart(const Duration(milliseconds: 48), 0.016), 0);
+    expect(loop.frameStart(const Duration(milliseconds: 64), 0.016), 0.016);
+  });
+
+  test('a freeze shorter than one frame still freezes that frame', () {
+    final app = _appWithProbes(<String>[]);
+    final loop = EcsFrameLoop(app)..ensureTimeResources();
+    app.start();
+    app.world.resources.get<GameClock>().freezeFor(0.005);
+
+    expect(loop.frameStart(const Duration(milliseconds: 16), 0.016), 0);
+    expect(loop.frameStart(const Duration(milliseconds: 32), 0.016), 0.016);
   });
 
   test('fixedStep updates FixedTime and runs fixedPrePhysics', () {

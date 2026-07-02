@@ -41,6 +41,8 @@ class Query1<A> {}
 class Query2<A, B> {}
 class EventReader<T> {}
 class EventWriter<T> {}
+class CurrentState<S extends Object> {}
+class NextState<S extends Object> { void set(S value) {} }
 abstract class AppBuilder {}
 abstract class Plugin {
   const Plugin();
@@ -92,6 +94,24 @@ final class FooSystem {
           contains('_p0 = world.commands;'),
           contains('final fooSystem = SystemDescriptor('),
           contains('() => \$FooSystemAdapter(const FooSystem())'),
+        ),
+      );
+    });
+
+    test('injects parameterized resources with their type arguments', () {
+      return _expectGenerated(
+        '''
+enum GamePhase { title, overworld }
+
+@System()
+final class EnterOverworldSystem {
+  const EnterOverworldSystem();
+  void run(@Resource() NextState<GamePhase> next) {}
+}
+''',
+        allOf(
+          contains('late final NextState<GamePhase> _p0;'),
+          contains('_p0 = world.resources.get<NextState<GamePhase>>();'),
         ),
       );
     });

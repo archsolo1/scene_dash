@@ -19,18 +19,13 @@ final class WorldPlugin extends Plugin {
   }
 }
 
-/// Startup system: configures the scene look and builds the static ramp.
-///
-/// Scene-wide setup is native `flutter_scene` work done directly on the
-/// `@Resource() Scene`. The ramp is a plain scene node, not an ECS entity: it
-/// never moves, so it carries a fixed Rapier body and matching box collider.
+/// Configures the scene look directly on the `@Resource() Scene` and builds the
+/// static ramp — a plain scene node, not an ECS entity, since it never moves.
 @System()
 final class SetupWorldSystem extends GameSystem {
   const SetupWorldSystem();
 
   void run(@Resource() Scene scene) {
-    // Shadows and cross-stripes make the slope read clearly instead of as a
-    // flat grey box.
     scene
       ..skybox = Skybox(GradientSkySource())
       ..environment = EnvironmentMap.studio()
@@ -58,15 +53,10 @@ final class SetupWorldSystem extends GameSystem {
       ..radius = 0.82
       ..smoothness = 0.62;
 
-    // New flutter_scene 0.18 render knobs need no bridge code — they are plain
-    // properties on the injected `@Resource() Scene`:
     scene
-      // MSAA where the backend supports it, FXAA otherwise (the default).
       ..antiAliasingMode = AntiAliasingMode.auto
-      // 1.0 = native resolution; <1.0 trades sharpness for speed, >1.0 supersamples.
       ..renderScale = 1.0;
-    // Screen-space ambient occlusion grounds the player/rocks in the ramp's
-    // creases (off by default; requires the PerspectiveCamera this game uses).
+    // SSAO is off by default and requires the PerspectiveCamera this game uses.
     scene.ambientOcclusion
       ..enabled = true
       ..intensity = 1.1
@@ -101,7 +91,6 @@ final class SetupWorldSystem extends GameSystem {
     scene.root.add(ramp);
   }
 
-  /// Bright cross-stripes painted on the ramp surface.
   void _addLaneStripes(Node ramp) {
     final stripe = PhysicallyBasedMaterial()
       ..baseColorFactor = Vector4(0.9, 0.85, 0.5, 1)

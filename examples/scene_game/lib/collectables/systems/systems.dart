@@ -1,8 +1,7 @@
 part of '../collectables.dart';
 
-/// Fixed step: spawn a shield pickup at the high end of the ramp when none is
-/// active and the cadence is due. The [OptionalSingle] gate is the single source
-/// of "is a pickup active" — no duplicate boolean or entity id in the spawner.
+/// Spawns a shield pickup when none is active and the cadence is due; the
+/// [OptionalSingle] gate is the single source of "is a pickup active".
 @System()
 void spawnShieldPickups(
   @Query(requires: [ShieldPickup]) OptionalSingle<SceneNodeRef> activePickup,
@@ -10,12 +9,15 @@ void spawnShieldPickups(
   @Resource() FixedTime time,
   Commands commands,
 ) {
-  if (activePickup.isPresent) return; // keep at most one pickup
+  if (activePickup.isPresent) return;
   if (!spawner.tick(time.delta)) return;
-  commands.spawn(ShieldPickupBundle(x: spawner.nextLane()));
+  final entity = commands.spawn(ShieldPickupBundle(x: spawner.nextLane()));
+  commands.insert<DespawnOnExit>(
+    entity,
+    const DespawnOnExit(GameStatus.playing),
+  );
 }
 
-/// Update: count the active shield down while the run is going.
 @System()
 void updateShieldState(
   @Resource() ShieldState shield,
@@ -24,9 +26,8 @@ void updateShieldState(
   shield.tick(time.delta);
 }
 
-/// Update: pulse and bob each pickup's glow child. The physics-driven root
-/// transform is left to Rapier (the pickup visibly rolls down the ramp); only
-/// the glow child is animated, in place, with no allocation.
+/// Pulses and bobs each pickup's glow child; the physics-driven root transform
+/// is left to Rapier.
 @System()
 void animateShieldPickups(
   @Query(
@@ -50,10 +51,8 @@ void animateShieldPickups(
   });
 }
 
-/// Update: collect a pickup when the player is close enough. A direct squared
-/// distance is appropriate because only zero or one pickup exists. On
-/// collection the shield activates/refreshes (the pop feedback is driven by the
-/// shield VFX system on the activation edge) and the pickup despawns.
+/// Collects a pickup when the player is close enough (a direct squared distance
+/// — only zero or one pickup exists).
 @System()
 void collectShieldPickups(
   @Query(requires: [Player]) Single<SceneNodeRef> player,
@@ -74,12 +73,8 @@ void collectShieldPickups(
   });
 }
 
-/// Update: drive the player's shield bubble and activation badge from
-/// [ShieldState] (which owns the timing). On the activation edge a badge pops in
-/// front of the player with an overshoot, then the bubble grows around the
-/// player; during the warning window the pulse speeds up and the bubble flashes;
-/// on expiry it shrinks and hides cleanly. Mutates player-owned nodes/materials
-/// in place — no shared-material leaks, no per-frame allocation.
+/// Drives the player's shield bubble and activation badge from [ShieldState],
+/// which owns the timing. Mutates player-owned nodes/materials in place.
 @System()
 void updateShieldVisuals(
   @Query(requires: [Player], writes: [PlayerVisuals])
@@ -129,7 +124,7 @@ void updateShieldVisuals(
   );
 }
 
-/// Update: despawn pickups that fell below the world or rolled past the ramp.
+/// Despawns pickups that fell below the world or rolled past the ramp.
 @System()
 void cleanupPickups(
   @Query(requires: [Collectable]) Query1<SceneNodeRef> pickups,
@@ -143,7 +138,6 @@ void cleanupPickups(
   });
 }
 
-/// Startup: build the shared shield-deflection pool and add its node.
 @System()
 void spawnShieldDeflectVfx(
   @Resource() Scene scene,
@@ -152,8 +146,6 @@ void spawnShieldDeflectVfx(
   vfx.pool = buildDeflectPool()..addTo(scene);
 }
 
-/// Update: advance the shield-deflection pool. Allocation-free — one scratch
-/// matrix, reused for every instance.
 @System()
 void updateShieldDeflectVfx(
   @Resource() ShieldDeflectVfx vfx,
@@ -189,8 +181,7 @@ double _approach(double value, double target, double rate) {
   return value + (target - value) * a;
 }
 
-/// Writes a uniform-scaled local transform at (x,y,z) onto [node] in place
-/// (re-assigning to trip the dirty flag) — no allocation.
+// Mutates in place and re-assigns to trip the node's dirty flag — no allocation.
 void _placeUniform(Node node, double x, double y, double z, double s) {
   final m = node.localTransform
     ..setIdentity()

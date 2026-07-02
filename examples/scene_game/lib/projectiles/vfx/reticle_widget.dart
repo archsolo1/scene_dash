@@ -1,19 +1,15 @@
 /// The in-world lock-on reticle widget shown by a single `WidgetComponent`.
 ///
-/// This is a visual reticle for the existing charge -> fire -> impact loop, not
-/// a targeting mechanic: one widget is reused and moved onto the most relevant
-/// rock by the projectiles reticle system, which drives [ReticleModel]. Charge,
-/// lock, fire, impact and visibility are owned by ECS and pushed through
-/// [ReticleModel.update]; only the decorative ring rotation and idle pulse phase
-/// are owned by Flutter, derived independently from one elapsed visual clock.
+/// Charge, lock, fire, impact and visibility are owned by ECS and pushed
+/// through [ReticleModel.update]; only the decorative ring rotation and idle
+/// pulse are owned by Flutter, derived from one elapsed visual clock.
 library;
 
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-/// ECS-driven reticle state. A [ChangeNotifier] so Flutter repaints exactly when
-/// charge/opacity/lock/fire/impact change — never by accident off the spin clock.
+/// ECS-driven reticle state; notifies only when a value actually changes.
 class ReticleModel extends ChangeNotifier {
   double _opacity = 0;
   double _charge01 = 0;
@@ -21,20 +17,12 @@ class ReticleModel extends ChangeNotifier {
   double _firedFlash = 0;
   double _impactFlash = 0;
 
-  /// Eased 0..1 overall visibility: 0 hides the reticle, 1 fully shows it.
   double get opacity => _opacity;
-
-  /// 0..1 charge progress; the brackets contract as this rises.
   double get charge01 => _charge01;
-
-  /// True at full charge: the brackets snap in and the colour goes hot.
   bool get locked => _locked;
-
-  /// 0..1 transient flashes: a fire kick-out and an impact hit-confirmation.
   double get firedFlash => _firedFlash;
   double get impactFlash => _impactFlash;
 
-  /// Pushes new ECS-owned state, notifying listeners only when something changed.
   void update({
     required double opacity,
     required double charge01,
@@ -69,8 +57,7 @@ class ReticleModel extends ChangeNotifier {
 /// Logical canvas size captured for the reticle texture.
 const double reticleCanvas = 220;
 
-// The decorative clock period (a plain seconds base); rotation and pulse derive
-// their own rates from it independently, so changing one never affects the other.
+// Rotation and pulse derive independent rates from one elapsed-seconds clock.
 const double _clockSeconds = 600;
 const double _ringRadPerSec = 1.4;
 const double _pulseRadPerSec = 7;
@@ -86,7 +73,6 @@ class ReticleWidget extends StatefulWidget {
 
 class _ReticleWidgetState extends State<ReticleWidget>
     with SingleTickerProviderStateMixin {
-  // A long free-running clock used purely as an elapsed-seconds base.
   late final AnimationController _clock = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 600),
@@ -94,8 +80,7 @@ class _ReticleWidgetState extends State<ReticleWidget>
 
   @override
   void dispose() {
-    // The clock is owned here; the model is owned by the ECS resource and only
-    // passed in, so it is not disposed here.
+    // The model is owned by the ECS resource, so it is not disposed here.
     _clock.dispose();
     super.dispose();
   }
@@ -138,13 +123,10 @@ class _ReticlePainter extends CustomPainter {
     final t = model.charge01.clamp(0.0, 1.0);
     final locked = model.locked;
     final impact = model.impactFlash.clamp(0.0, 1.0);
-    // Base colour goes cyan -> amber with charge; a hit pushes it toward orange
-    // so the confirmation reads even mid-charge.
+    // Cyan -> amber with charge; a hit pushes toward orange even mid-charge.
     var color = Color.lerp(_loose, _hot, locked ? 1.0 : t * t)!;
     color = Color.lerp(color, _impact, impact)!;
 
-    // Outer rotating ring with tick marks (bold, opaque enough to read against a
-    // bright scene).
     final ringPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.5
@@ -168,8 +150,7 @@ class _ReticlePainter extends CustomPainter {
       );
     }
 
-    // Brackets that contract toward the target as charge rises, kick outward on
-    // fire, and snap tight at full charge.
+    // Brackets contract as charge rises and kick outward on fire.
     final bracketR = (r * (0.92 - 0.42 * t)) + model.firedFlash * r * 0.6;
     final bracketPaint = Paint()
       ..style = PaintingStyle.stroke
@@ -183,7 +164,6 @@ class _ReticlePainter extends CustomPainter {
       canvas.drawArc(rect, mid - arc, arc * 2, false, bracketPaint);
     }
 
-    // Lock-on pulse at full charge, on its own pulse rate.
     if (locked) {
       final pulse = 0.5 + 0.5 * math.sin(pulsePhase);
       final pulsePaint = Paint()
@@ -193,15 +173,13 @@ class _ReticlePainter extends CustomPainter {
       canvas.drawCircle(center, bracketR + 8 + pulse * 8, pulsePaint);
     }
 
-    // Centre dot.
     canvas.drawCircle(
       center,
       3.5,
       Paint()..color = color.withValues(alpha: 1.0 * o),
     );
 
-    // Impact hit-confirmation: bold expanding rings in hot orange, not a washed
-    // white disc.
+    // Impact hit-confirmation rings.
     if (impact > 0.01) {
       final rExp = r * (0.45 + (1 - impact) * 0.7);
       canvas.drawCircle(

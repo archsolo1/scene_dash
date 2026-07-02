@@ -31,12 +31,12 @@ final class PlayerPlugin extends Plugin {
       ..addSystem(
         movePlayerSystem,
         schedule: Schedules.fixedPrePhysics,
-        runIf: playing,
+        runIf: inState(GameStatus.playing),
       )
       ..addSystem(
         animateCrabLegsSystem,
         schedule: Schedules.update,
-        runIf: playing,
+        runIf: inState(GameStatus.playing),
       );
   }
 }

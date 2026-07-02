@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:scene_dash/scene_dash.dart' show App, CurrentState;
 import 'package:scene_game/game/game_state.dart';
 import 'package:scene_game/hud/game_hud.dart';
 
@@ -37,7 +38,12 @@ void main() {
     void Function(bool)? onFireChanged,
     VoidCallback? onFireCanceled,
   }) async {
-    final hud = HudState(GameState())..value = snapshot;
+    // A real state machine provides the CurrentState resource the HUD reads.
+    final app = App()..addState<GameStatus>(GameStatus.playing);
+    final hud = HudState(
+      GameState(),
+      phase: app.world.resource<CurrentState<GameStatus>>(),
+    )..value = snapshot;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(

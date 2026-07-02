@@ -28,19 +28,17 @@ final class RulesPlugin extends Plugin {
   @override
   void build(AppBuilder app) {
     app
-      ..addSystem(restartSystem, schedule: Schedules.frameStart)
-      // The lose/deflect check must see this frame's collection and shield tick,
-      // so order it explicitly behind those collectables systems (cross-feature
-      // descriptors; a rename is a compile error).
+      ..addSystem(requestRestartSystem, schedule: Schedules.frameStart)
+      // Runs once at startup and again on every restart transition.
+      ..addSystem(startRunSystem, schedule: OnEnter(GameStatus.playing))
+      // The lose/deflect check must see this frame's collection and shield tick.
       ..addSystem(
         evaluateGameRulesSystem,
         schedule: Schedules.update,
         after: [collectShieldPickupsSystem, updateShieldStateSystem],
-        runIf: playing,
+        runIf: inState(GameStatus.playing),
       )
-      // Keep camera follow after rule evaluation so the view observes the latest
-      // player state. Referencing the descriptor means a rename is a compile
-      // error.
+      // Camera follow observes the latest player state.
       ..addSystem(
         playerViewSystem,
         schedule: Schedules.update,

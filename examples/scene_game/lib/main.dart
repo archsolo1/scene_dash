@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_scene/scene.dart';
 import 'package:flutter_scene_rapier/flutter_scene_rapier.dart';
+import 'package:scene_dash/scene_dash.dart' show CurrentState;
 import 'package:scene_dash_flutter_scene/scene_dash_flutter_scene.dart';
 import 'package:vector_math/vector_math.dart' show Vector3;
 
@@ -22,10 +23,9 @@ import 'world/world.dart';
 
 /// Rock Dodge: an inclined platform, rolling rocks, and one player sphere.
 ///
-/// The game is structured as Scene-Dash features (`world/`, `player/`,
-/// `rocks/`, `rules/`), each a plugin with its own systems. Physics is native
-/// `flutter_scene_rapier`; bundles attach real bodies and colliders to scene
-/// nodes, while ECS systems steer and query those native objects.
+/// Structured as Scene-Dash features, each a plugin with its own systems.
+/// Physics is native `flutter_scene_rapier`: bundles attach real bodies and
+/// colliders to scene nodes, and ECS systems steer those native objects.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Scene.initializeStaticResources();
@@ -37,16 +37,14 @@ Future<void> main() async {
 
   final input = InputState();
   final gameState = GameState();
-  // Shared, single-source-of-truth resources constructed once and handed to both
-  // the owning plugin (which registers them) and the HUD (which reads them).
+  // Constructed once and handed to both the owning plugin (which registers
+  // them) and the HUD (which reads them).
   final blaster = Blaster();
   final shield = ShieldState();
-  final hudState = HudState(gameState, blaster: blaster, shield: shield);
   final cameraRig = CameraRig();
 
-  // Resources the Flutter widget also holds are constructed here and inserted
-  // once through the game;
   final game = Game(scene: scene)
+    ..addState<GameStatus>(GameStatus.playing)
     ..addPlugin(PhysicsPlugin(physics))
     ..addPlugin(const WorldPlugin())
     ..addPlugin(const PlayerPlugin())
@@ -58,6 +56,14 @@ Future<void> main() async {
     ..insertResource<InputState>(input)
     ..insertResource<GameState>(gameState)
     ..insertResource<CameraRig>(cameraRig);
+
+  // The HUD reads the run mode straight off the state machine's resource.
+  final hudState = HudState(
+    gameState,
+    phase: game.world.resource<CurrentState<GameStatus>>(),
+    blaster: blaster,
+    shield: shield,
+  );
 
   await game.start();
 
@@ -107,10 +113,8 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
   @override
   void dispose() {
     _focus.dispose();
-    // The widget owns these, so it tears them down: shutting the game down runs
-    // the shutdown schedule and detaches the scene driver (important for hot
-    // restart, navigation and embedding); disposing HudState releases its
-    // ValueNotifier listeners.
+    // Shutting the game down runs the shutdown schedule and detaches the scene
+    // driver — important for hot restart, navigation and embedding.
     widget.input.cancelFire();
     widget.hudState.dispose();
     unawaited(widget.game.shutdown());
@@ -118,7 +122,6 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    // KeyRepeatEvent is ignored: only the first KeyDownEvent starts a hold.
     if (event is KeyDownEvent) {
       _pressed.add(event.logicalKey);
       if (event.logicalKey == LogicalKeyboardKey.keyR) {
@@ -177,7 +180,6 @@ class _RockDodgeAppState extends State<RockDodgeApp> {
       ..restartRequested = true;
   }
 
-  /// Reconciles the combined held state into the [InputState] fire transitions.
   void _applyFire({bool canceled = false}) {
     final held = _spaceFire || _touchFire;
     if (held && !widget.input.fireHeld) {

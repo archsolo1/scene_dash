@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../diagnostics/app_diagnostics.dart';
 import '../diagnostics/system_profiler.dart';
+import '../entity/entity.dart';
 import '../schedule/access_conflict.dart';
 import '../schedule/schedule.dart';
 import '../schedule/schedule_label.dart';
@@ -9,6 +10,7 @@ import '../schedule/schedules.dart';
 import '../schedule/system_descriptor.dart';
 import '../schedule/system_label.dart';
 import '../schedule/system_registration.dart';
+import '../state/states.dart';
 import '../system/system_adapter.dart';
 import '../world/world.dart';
 import 'app_builder.dart';
@@ -26,6 +28,7 @@ final class App implements AppBuilder {
   final World world = World();
 
   final Map<ScheduleLabel, Schedule> _schedules = <ScheduleLabel, Schedule>{};
+  final List<StateMachine> _stateMachines = <StateMachine>[];
   final Map<Type, Plugin> _addedPlugins = <Type, Plugin>{};
   final List<FutureOr<void> Function()> _cleanups =
       <FutureOr<void> Function()>[];
@@ -163,7 +166,12 @@ final class App implements AppBuilder {
     RunCondition? runIf,
   }) {
     _assertOpen();
-    final target = _schedules[schedule];
+    var target = _schedules[schedule];
+    if (target == null && schedule is StateScheduleLabel) {
+      // Enter/exit schedules are created on demand: state values are not
+      // enumerable generically, so the label itself is the registration.
+      target = _schedules[schedule] = Schedule(schedule);
+    }
     if (target == null) {
       throw StateError('Unknown schedule: ${schedule.id}');
     }
@@ -176,6 +184,26 @@ final class App implements AppBuilder {
         runIf: runIf,
       ),
     );
+    return this;
+  }
+
+  @override
+  AppBuilder addState<S extends Object>(S initial) {
+    _assertOpen();
+    if (world.resources.contains<CurrentState<S>>()) {
+      throw StateError(
+        'A state machine for $S has already been added. Each state type is '
+        'registered exactly once; use a second enum for an orthogonal machine.',
+      );
+    }
+    final machine = StateMachineRuntime<S>(initial);
+    world.resources
+      ..insert<CurrentState<S>>(machine.current)
+      ..insert<NextState<S>>(machine.next);
+    // Registered eagerly so game code can `commands.insert<DespawnOnExit>`
+    // without any system having queried the type first.
+    world.ensureObjectStore<DespawnOnExit>();
+    _stateMachines.add(machine);
     return this;
   }
 
@@ -214,12 +242,17 @@ final class App implements AppBuilder {
     return this;
   }
 
-  /// Compiles and freezes all schedules, initializes every system adapter, then
-  /// runs the [Schedules.startup] schedule once.
+  /// Compiles and freezes all schedules, initializes every system adapter,
+  /// runs the [Schedules.startup] schedule once, then runs each state
+  /// machine's `OnEnter(initial)`.
+  ///
+  /// Transitions queued during startup or the initial enters are not applied
+  /// here; they apply at the first [applyStateTransitions].
   void start() {
     if (_finalized) {
       throw StateError('App has already been started.');
     }
+    _validateStateSchedules();
     final detect = accessConflictPolicy != AccessConflictPolicy.ignore;
     for (final schedule in _schedules.values) {
       schedule.compile(world, detectConflicts: detect);
@@ -228,6 +261,23 @@ final class App implements AppBuilder {
     _reportAccessConflicts();
     _finalized = true;
     runSchedule(Schedules.startup);
+    for (final machine in _stateMachines) {
+      machine.enterInitial(_runStateSchedule);
+    }
+  }
+
+  /// Rejects enter/exit registrations whose state type was never added — a
+  /// forgotten `addState` would otherwise leave those systems silently dead.
+  void _validateStateSchedules() {
+    for (final label in _schedules.keys) {
+      if (label is! StateScheduleLabel) continue;
+      if (_stateMachines.any((machine) => machine.owns(label.value))) continue;
+      throw StateError(
+        'Systems are registered in ${label.id}, but no state machine covers '
+        '${label.value}. Call addState<${label.value.runtimeType}>(...) '
+        'before start().',
+      );
+    }
   }
 
   void _reportAccessConflicts() {
@@ -261,6 +311,73 @@ final class App implements AppBuilder {
     }
     schedule.run(world, profiler);
     world.commands.apply();
+  }
+
+  /// Applies pending state transitions for every registered state machine.
+  ///
+  /// For each machine with a queued [NextState]: runs `OnExit(old)`, despawns
+  /// entities carrying a matching [DespawnOnExit], swaps [CurrentState], runs
+  /// `OnEnter(new)` — flushing commands after each schedule pass. Repeats
+  /// until no machine is pending (an `OnEnter` may queue a further
+  /// transition), and throws after [maxStateTransitionPasses] passes so a
+  /// transition cycle fails loudly instead of hanging the frame.
+  ///
+  /// The standard driver calls this at the frame-start boundary, after the
+  /// [Schedules.frameStart] schedule; headless callers invoke it themselves at
+  /// the equivalent point.
+  void applyStateTransitions() {
+    if (!_finalized) {
+      throw StateError('Call start() before applying state transitions.');
+    }
+    if (_stateMachines.isEmpty) return;
+    var passes = 0;
+    while (true) {
+      var applied = false;
+      for (final machine in _stateMachines) {
+        if (machine.applyPending(_runStateSchedule, _despawnStateScoped)) {
+          applied = true;
+        }
+      }
+      if (!applied) return;
+      passes++;
+      if (passes >= maxStateTransitionPasses) {
+        throw StateError(
+          'State transitions did not settle after $maxStateTransitionPasses '
+          'passes — an OnEnter/OnExit system is queueing transitions in a '
+          'cycle.',
+        );
+      }
+    }
+  }
+
+  /// Chained-transition cap for one [applyStateTransitions] call.
+  static const int maxStateTransitionPasses = 8;
+
+  /// Runs a state lifecycle schedule if any system registered into it; a state
+  /// value with no enter/exit systems is normal and skipped silently.
+  void _runStateSchedule(ScheduleLabel label) {
+    final schedule = _schedules[label];
+    if (schedule == null) return;
+    schedule.run(world, profiler);
+    world.commands.apply();
+  }
+
+  /// Despawns every entity whose [DespawnOnExit] matches the state value being
+  /// left. Runs after `OnExit(oldValue)` (whose commands have been flushed), so
+  /// exit systems still see the entities and the buffer is safe to bypass.
+  void _despawnStateScoped(Object oldValue) {
+    final store = world.ensureObjectStore<DespawnOnExit>();
+    if (store.length == 0) return;
+    // Collect first: despawnNow compacts the store's dense rows as it removes.
+    final doomed = <Entity>[];
+    for (var dense = 0; dense < store.length; dense++) {
+      if (store.valueAt(dense).value == oldValue) {
+        doomed.add(world.entities.resolve(store.entityIndexAt(dense)));
+      }
+    }
+    for (final entity in doomed) {
+      world.despawnNow(entity);
+    }
   }
 
   /// Advances all event channels, reclaiming consumed events. Call once per

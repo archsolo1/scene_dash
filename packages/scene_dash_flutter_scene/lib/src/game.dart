@@ -98,6 +98,13 @@ final class Game {
     return this;
   }
 
+  /// Registers a state machine for [S], starting at [initial]. Mirrors
+  /// [AppBuilder.addState]; transitions apply at the frame-start boundary.
+  Game addState<S extends Object>(S initial) {
+    app.addState<S>(initial);
+    return this;
+  }
+
   /// Inserts an externally-constructed resource (e.g. one the Flutter widget
   /// also holds) before [start]. The single authoring path for resources —
   /// fails loud on a duplicate; use [replaceResource] to swap intentionally.

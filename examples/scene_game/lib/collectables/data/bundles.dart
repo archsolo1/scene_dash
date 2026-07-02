@@ -1,12 +1,8 @@
 part of '../collectables.dart';
 
-/// A rolling shield pickup: a dynamic Rapier sphere that rolls down the ramp,
-/// with a pulsing glow child. Rapier owns the root transform ([PhysicsDriven]);
-/// the glow child is animated separately.
-///
-/// Its collider sits on [PhysicsLayers.collectable] with a mask of only
-/// [PhysicsLayers.platform], so it interacts with the ramp but creates no rock,
-/// player, or projectile contacts.
+/// A rolling shield pickup: a dynamic Rapier sphere with a pulsing glow child.
+/// Its collider masks to [PhysicsLayers.platform] only, so it rolls on the ramp
+/// without rock, player, or projectile contacts.
 @Bundle()
 final class ShieldPickupBundle with _$ShieldPickupBundle {
   final Collectable collectable;
@@ -40,7 +36,6 @@ final class ShieldPickupBundle with _$ShieldPickupBundle {
     ..roughnessFactor = 0.2
     ..alphaMode = AlphaMode.blend;
 
-  // All pickups share one geometry/material; build them once, not per spawn.
   static final _geometry = SphereGeometry(radius: collectableRadius);
   static final _glowGeometry = SphereGeometry(radius: collectableRadius * 1.5);
 
@@ -61,7 +56,6 @@ final class ShieldPickupBundle with _$ShieldPickupBundle {
         RapierRigidBody(
           type: BodyType.dynamic_,
           ccdEnabled: true,
-          // A downhill nudge plus a roll so it tumbles down the ramp.
           linearVelocity: Vector3(0, 0, 4),
           angularVelocity: Vector3(3, 0, 0),
         ),

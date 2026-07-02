@@ -1,7 +1,5 @@
 part of '../projectiles.dart';
 
-/// Startup: build the single reused lock-on reticle (one WidgetComponent on one
-/// node) and add it to the scene, hidden.
 @System()
 void spawnLockOnReticle(
   @Resource() Scene scene,
@@ -25,10 +23,8 @@ void spawnLockOnReticle(
   scene.root.add(node);
 }
 
-/// Update: pick the most relevant rock in the firing lane and drive the reticle
-/// onto it facing the camera, easing its charge/lock/visibility from the
-/// [Blaster] and publishing to the model. Visual feedback only — it does not
-/// steer the projectile or add homing.
+/// Drives the reticle onto the most relevant rock in the firing lane, facing
+/// the camera. Visual feedback only — no homing.
 @System()
 void updateLockOnReticle(
   @Query(requires: [Player]) Single<SceneNodeRef> player,
@@ -44,16 +40,14 @@ void updateLockOnReticle(
 
   final pos = player.value.node.globalTransform.getTranslation();
 
-  // Nearest rock ahead of the player (largest Z below the player) within the
-  // firing lane. Reads the transform's translation columns directly — no
-  // allocation, no rebuilt set.
+  // Nearest rock ahead of the player within the firing lane.
   var bestZ = -1e9;
   var hasRock = false;
   var bx = 0.0, by = 0.0, bz = 0.0;
   rocks.each((entity, binding) {
     final m = binding.node.globalTransform.storage;
     final rx = m[12], ry = m[13], rz = m[14];
-    if (rz > pos.z + 1.0) return; // not ahead of the player
+    if (rz > pos.z + 1.0) return;
     if ((rx - pos.x).abs() > reticleLaneHalfWidth) return;
     if (rz > bestZ) {
       bestZ = rz;
@@ -84,7 +78,6 @@ void updateLockOnReticle(
   }
 }
 
-/// Shutdown: dispose the reticle model (owned by the resource, not the widget).
 @System()
 void disposeLockOnReticle(@Resource() LockOnReticle reticle) =>
     reticle.disposeModel();

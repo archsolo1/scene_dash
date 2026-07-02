@@ -22,10 +22,8 @@ part 'vfx/vfx.dart';
 part 'systems/systems.dart';
 
 /// Installs rolling shield pickups, the shield state, and the player's shield
-/// feedback and deflection VFX.
-///
-/// [ShieldState] is constructed once in `main()` and shared with the HUD, so the
-/// plugin receives it and is the sole place it is registered as a resource.
+/// feedback and deflection VFX. [ShieldState] is constructed in `main()` and
+/// shared with the HUD; this plugin is the sole place it is registered.
 @GamePlugin()
 final class CollectablesPlugin extends Plugin {
   const CollectablesPlugin({required this.shield});
@@ -38,27 +36,25 @@ final class CollectablesPlugin extends Plugin {
       ..insertResource<ShieldState>(shield)
       ..insertResource<CollectableSpawner>(CollectableSpawner())
       ..insertResource<ShieldDeflectVfx>(ShieldDeflectVfx())
-      // Spawn in fixedPrePhysics so the body is mounted before the native step,
-      // under the existing command-boundary lifecycle.
+      // fixedPrePhysics so the body is mounted before the native step.
       ..addSystem(
         spawnShieldPickupsSystem,
         schedule: Schedules.fixedPrePhysics,
-        runIf: playing,
+        runIf: inState(GameStatus.playing),
       )
       ..addSystem(spawnShieldDeflectVfxSystem, schedule: Schedules.startup)
       ..addSystem(
         updateShieldStateSystem,
         schedule: Schedules.update,
-        runIf: playing,
+        runIf: inState(GameStatus.playing),
       )
       ..addSystem(animateShieldPickupsSystem, schedule: Schedules.update)
-      // Collection activates the shield; order it after the shield tick so a
-      // freshly collected shield is not immediately ticked down this frame.
+      // After the shield tick so a fresh shield isn't ticked down this frame.
       ..addSystem(
         collectShieldPickupsSystem,
         schedule: Schedules.update,
         after: [updateShieldStateSystem],
-        runIf: playing,
+        runIf: inState(GameStatus.playing),
       )
       ..addSystem(
         updateShieldVisualsSystem,

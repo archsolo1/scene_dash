@@ -14,7 +14,7 @@ class $ShootProjectilesSystemAdapter
   late final Commands _p0;
   late final Single<SceneNodeRef> _p1;
   late final InputState _p2;
-  late final GameState _p3;
+  late final CurrentState<GameStatus> _p3;
   late final Blaster _p4;
   late final LockOnReticle _p5;
   late final FixedTime _p6;
@@ -31,7 +31,7 @@ class $ShootProjectilesSystemAdapter
       ),
     );
     _p2 = world.resources.get<InputState>();
-    _p3 = world.resources.get<GameState>();
+    _p3 = world.resources.get<CurrentState<GameStatus>>();
     _p4 = world.resources.get<Blaster>();
     _p5 = world.resources.get<LockOnReticle>();
     _p6 = world.resources.get<FixedTime>();

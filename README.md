@@ -306,6 +306,44 @@ final game = Game(scene: scene)
   ..addPlugin(const SavePlugin());
 ```
 
+### States
+
+States are whole-game modes — title screen, overworld, paused — that gate
+system sets and run one-shot enter/exit lifecycles. Register a machine with
+`addState` (one per enum), put setup/teardown in `OnEnter`/`OnExit` schedules,
+and gate steady-state systems with `inState`:
+
+```dart
+enum GamePhase { title, overworld, dungeon }
+
+app
+  ..addState<GamePhase>(GamePhase.title)
+  ..addSystem(spawnDungeonSystem, schedule: OnEnter(GamePhase.dungeon))
+  ..addSystem(saveDungeonProgressSystem, schedule: OnExit(GamePhase.dungeon))
+  ..addSystem(movePlayerSystem,
+      schedule: Schedules.update, runIf: inState(GamePhase.overworld));
+```
+
+Enter/exit schedules are for world-side work — spawning a region, tearing down
+VFX, saving progress. Screens and menus stay Flutter: widgets read the current
+state through your HUD snapshot/notifier and switch layers, the same way
+`GameHud` reads `GameState` in the example game.
+
+Systems request a transition through the `NextState` resource; it applies at
+the next frame start, running `OnExit(old)` then `OnEnter(new)`:
+
+```dart
+@System()
+void enterDungeon(@Resource() NextState<GamePhase> next) =>
+    next.set(GamePhase.dungeon);
+```
+
+Entities can be scoped to a state with a `DespawnOnExit` component: leaving
+the state despawns them automatically (after its `OnExit` systems run), so a
+dungeon can spawn freely and needs no manual cleanup system. Machines of
+different enum types are orthogonal and coexist — a `PauseState` transitions
+independently of the `GamePhase`.
+
 ## Rendering
 
 Your game data lives in the world as plain objects in flat arrays; everything

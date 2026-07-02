@@ -1,19 +1,13 @@
 part of '../player.dart';
 
-/// Startup: spawn the one player. A top-level `@System` function — the most
-/// concise system form (no class, no constructor, no mixin). The generator emits
-/// a `spawnPlayerSystem` descriptor for it.
 @System()
 void spawnPlayer(Commands commands) {
   commands.spawn(PlayerBundle());
 }
 
-/// Fixed step: translate input into a move-and-slide request.
-///
-/// Drives the player through its native character controller and snaps it to the
-/// ramp (both reached through `SceneNodeRef`), so the query declares
-/// `writes: [SceneNodeRef]`: mutating an object reached through a component
-/// reference counts as writing that component for scheduler diagnostics.
+/// Translates input into a move-and-slide request each fixed step. The query
+/// declares `writes: [SceneNodeRef]` because mutating an object reached through
+/// a component reference counts as writing that component.
 @System()
 void movePlayer(
   @Query(requires: [Player], writes: [SceneNodeRef])
@@ -22,10 +16,7 @@ void movePlayer(
   @Resource() FixedTime time,
   @Resource() PlayerKnockback knockback,
 ) {
-  // The integration mounts the player under the RapierWorld before the first
-  // step, so the node is already in the scene here. Resolve the Single once
-  // (`.value` re-runs the query each access) and reach the native controller
-  // through `SceneNodeRef.component`.
+  // Resolve the Single once — `.value` re-runs the query each access.
   final ref = player.value;
   final controller = ref.component<RapierKinematicCharacterController>();
   if (controller == null) return;
@@ -34,8 +25,7 @@ void movePlayer(
   final dt = time.delta;
   _snapToRamp(node, knockback);
 
-  // Read the translation straight out of the column-major matrix storage
-  // (elements 12..14) instead of getTranslation(), which allocates.
+  // Read translation from the matrix storage — getTranslation() allocates.
   final m = node.localTransform.storage;
   final positionY = m[13];
   final motion = knockback.step(dt)
@@ -61,9 +51,8 @@ void _snapToRamp(Node node, PlayerKnockback knockback) {
   knockback.ground();
 }
 
-/// Update: unfold the six visual crab legs, then layer a procedural two-group
-/// gait on top while the player strafes. Only player-owned child nodes move;
-/// the physics/root node and the central collider remain untouched.
+/// Unfolds the six visual crab legs, then layers a procedural two-group gait on
+/// top while the player strafes. Only player-owned child nodes move.
 @System()
 void animateCrabLegs(
   @Query(requires: [Player], writes: [PlayerVisuals])

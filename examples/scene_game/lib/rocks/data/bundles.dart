@@ -1,9 +1,7 @@
 part of '../rocks.dart';
 
-/// A dynamic rock. Rapier owns its node transform, hence [PhysicsDriven].
-///
-/// Each rock also carries a hidden flash shell child ([RockVisuals]) used by the
-/// hit-reaction system for the visible impact flash.
+/// A dynamic rock. Rapier owns its node transform, hence [PhysicsDriven]. Each
+/// rock carries a hidden flash shell child ([RockVisuals]) for the hit flash.
 @Bundle()
 final class RockBundle with _$RockBundle {
   final Rock rock;
@@ -32,8 +30,8 @@ final class RockBundle with _$RockBundle {
     ..metallicFactor = 0.18
     ..roughnessFactor = 0.26;
 
-  // One shared flash-shell look for every rock: only the shell's transform scale
-  // changes per hit, so this material is shared and never mutated per rock.
+  // Only the shell's transform scale changes per hit, so this material is
+  // shared and never mutated per rock.
   static final Material _shellMaterial = PhysicallyBasedMaterial()
     ..baseColorFactor = Vector4(1.0, 0.95, 0.7, 0.5)
     ..emissiveFactor = Vector4(1.2, 1.0, 0.6, 1)
@@ -41,12 +39,10 @@ final class RockBundle with _$RockBundle {
     ..roughnessFactor = 0.2
     ..alphaMode = AlphaMode.blend;
 
-  // All rocks share one sphere geometry (only the material differs by variant),
-  // so build it once instead of per spawn — rocks are the highest-churn entity.
+  // Built once, not per spawn — rocks are the highest-churn entity.
   static final _geometry = SphereGeometry(radius: rockRadius);
   static final _shellGeometry = SphereGeometry(radius: rockRadius * 1.12);
 
-  /// The hidden flash shell, created once per rock at zero scale.
   static Node _makeShell() {
     return Node(
       mesh: Mesh(_shellGeometry, _shellMaterial),
@@ -59,10 +55,6 @@ final class RockBundle with _$RockBundle {
       mesh: Mesh(_geometry, flaming ? _flamingMaterial : _material),
       localTransform: Matrix4.translation(Vector3(x, rockSpawnY, rockSpawnZ)),
     )..add(shell);
-    // The flame trail is an ECS component + shared instanced pool (see
-    // systems.dart), inserted on the entity by SpawnRocksSystem — not a
-    // per-rock flutter_scene component here.
-
     return node
       ..addComponent(
         RapierRigidBody(
@@ -80,10 +72,8 @@ final class RockBundle with _$RockBundle {
   }
 }
 
-/// The collider for a rock, tagged with [PhysicsLayers.rock] so lose-condition
-/// checks can classify a physics overlap hit by its collider layer instead of
-/// rebuilding a set of every rock each frame. The collision *mask* stays
-/// permissive (default) so rock contacts are unchanged.
+/// Tagged with [PhysicsLayers.rock] so overlap hits can be classified by
+/// collider layer; the collision *mask* stays permissive (default).
 RapierCollider buildRockCollider() => RapierCollider(
   shape: SphereShape(radius: rockRadius),
   collisionLayer: PhysicsLayers.rock,

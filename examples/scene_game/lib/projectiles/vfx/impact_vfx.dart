@@ -1,6 +1,5 @@
 part of '../projectiles.dart';
 
-/// Startup: build the spark, charged-spark and ring instanced pools.
 @System()
 void spawnImpactVfx(@Resource() Scene scene, @Resource() ImpactVfx vfx) {
   vfx.sparkPool = InstancedPool(
@@ -20,9 +19,6 @@ void spawnImpactVfx(@Resource() Scene scene, @Resource() ImpactVfx vfx) {
   )..addTo(scene);
 }
 
-/// Update: advance all three pools. Allocation-free — one scratch matrix per
-/// pool, reused for every instance. Strength (charge) scales the charged sparks
-/// and the ring within bounded limits.
 @System()
 void updateImpactVfx(@Resource() ImpactVfx vfx, @Resource() FrameTime time) {
   final dt = time.delta;
@@ -64,10 +60,8 @@ void updateImpactVfx(@Resource() ImpactVfx vfx, @Resource() FrameTime time) {
   );
 }
 
-/// Advances one burst pool: ages each live instance and writes its grow-then-pop
-/// transform; free slots (age past [duration]) are skipped (already hidden).
-/// When [strength] is given, each instance's end size is boosted by up to
-/// [strengthSize] times its stored 0..1 strength.
+/// Ages each live instance and writes its grow-then-pop transform; free slots
+/// (age past [duration]) are already hidden and skipped.
 void _advanceBurst(
   InstancedPool? pool,
   Float32List age,

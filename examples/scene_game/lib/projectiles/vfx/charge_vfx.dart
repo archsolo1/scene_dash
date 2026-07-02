@@ -1,11 +1,8 @@
 part of '../projectiles.dart';
 
-/// Update: drives the player's charge orb and beam from the [Blaster] (the sole
-/// source of charge truth). The orb grows with charge, pulses, flashes faster
-/// near full, and shifts colour from cyan toward a hot charged violet; a beam
-/// tethers the player to the orb. All animation mutates player-owned nodes and
-/// the player's unique materials in place — no shared-material leaks, no
-/// per-frame allocation.
+/// Drives the player's charge orb, beam and motes from the [Blaster], the sole
+/// source of charge truth. Mutates player-owned nodes and unique materials in
+/// place.
 @System()
 void updateChargeVisuals(
   @Query(requires: [Player], writes: [PlayerVisuals])
@@ -17,13 +14,11 @@ void updateChargeVisuals(
   final c = blaster.charge01;
   final charging = blaster.isCharging;
 
-  // Advance the animation phase and ease the show factor so release/cancel
-  // shrinks the orb and beam cleanly.
   v.chargePhase += time.delta * (6 + 10 * c);
+  // Eased show factor so release/cancel shrinks the orb and beam cleanly.
   final show = v.chargeShow =
       _approach(v.chargeShow, charging ? 1.0 : 0.0, time.delta * 12);
 
-  // Shaping scalars shared by every part of the effect.
   final pulse = 1 + 0.08 * math.sin(v.chargePhase);
   final flash = (charging && c > 0.82)
       ? 0.75 + 0.25 * math.sin(v.chargePhase * 3)
@@ -56,8 +51,6 @@ void updateChargeVisuals(
   );
 }
 
-/// The orb at the player centre, shaded from cyan toward charged violet and
-/// brightened near full charge by [flash].
 void _updateChargeOrb(
   PlayerVisuals v, {
   required double c,
@@ -80,8 +73,6 @@ void _updateChargeOrb(
   );
 }
 
-/// A restrained vertical charge beam above the player: a simple cylinder that
-/// grows with charge and breathes with [pulse], shaded like the orb.
 void _updateChargeBeam(
   PlayerVisuals v, {
   required double c,
@@ -116,9 +107,6 @@ void _updateChargeBeam(
   );
 }
 
-/// The small decor-like motes that orbit and rise along the beam to carry the
-/// "magical" feel. Allocation-free — each mote's transform is computed and
-/// written in place.
 void _updateChargeMotes(
   PlayerVisuals v, {
   required double c,

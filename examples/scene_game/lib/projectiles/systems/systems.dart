@@ -1,7 +1,6 @@
 part of '../projectiles.dart';
 
-/// Per-frame scratch for the live projectile position, reused so the update
-/// loop allocates nothing per projectile.
+// Reused scratch so the update loop allocates nothing per projectile.
 final Vector3 _projectilePosition = Vector3.zero();
 
 @System()
@@ -10,15 +9,14 @@ final class ShootProjectilesSystem extends GameSystem {
 
   void run(
     Commands commands,
-    // Reads the player position only (no node mutation), so no `writes:` here.
     @Query(requires: [Player]) Single<SceneNodeRef> player,
     @Resource() InputState input,
-    @Resource() GameState game,
+    @Resource() CurrentState<GameStatus> status,
     @Resource() Blaster blaster,
     @Resource() LockOnReticle reticle,
     @Resource() FixedTime time,
   ) {
-    if (game.status != GameStatus.playing) {
+    if (status.value != GameStatus.playing) {
       blaster.reset();
       input.clearFireTransitions();
       return;
@@ -40,15 +38,23 @@ final class ShootProjectilesSystem extends GameSystem {
 
     final charged = shots.charged;
     if (charged != null) {
-      // A charged release is one larger projectile, not a burst.
       final strength = math.max(charged, minChargedCharge);
-      commands.spawn(ProjectileBundle(position: base, charge: strength));
+      _spawnScoped(commands, ProjectileBundle(position: base, charge: strength));
       reticle.flashFired();
     } else {
       for (var i = 0; i < shots.burst; i++) {
-        commands.spawn(ProjectileBundle(position: base));
+        _spawnScoped(commands, ProjectileBundle(position: base));
       }
     }
+  }
+
+  /// Spawns a projectile scoped to the run, so exiting `playing` despawns it.
+  static void _spawnScoped(Commands commands, ProjectileBundle bundle) {
+    final entity = commands.spawn(bundle);
+    commands.insert<DespawnOnExit>(
+      entity,
+      const DespawnOnExit(GameStatus.playing),
+    );
   }
 }
 
@@ -68,9 +74,7 @@ final class UpdateProjectilesSystem extends GameSystem {
     final dt = time.delta;
     projectiles.each((entity, projectile, binding) {
       projectile.age += dt;
-      // globalTransform returns the node's cached matrix (no allocation); read
-      // the translation from its column-major storage into the reused scratch.
-      // _knockRocks consumes it before the next iteration overwrites it.
+      // globalTransform returns the node's cached matrix — no allocation.
       final m = binding.node.globalTransform.storage;
       final position = _projectilePosition..setValues(m[12], m[13], m[14]);
 
@@ -99,9 +103,8 @@ final class UpdateProjectilesSystem extends GameSystem {
     });
   }
 
-  /// Applies the native bounce/spin to the first rock overlapping [position],
-  /// scaled by [charge], and inserts an ECS hit reaction on the resolved rock
-  /// entity. Returns whether a rock was hit.
+  /// Applies the native bounce/spin to rocks overlapping [position] and inserts
+  /// an ECS hit reaction on each resolved rock entity. Returns the hit count.
   int _knockRocks(
     PhysicsWorld physics,
     SceneNodeIndex index,
@@ -147,9 +150,8 @@ final class UpdateProjectilesSystem extends GameSystem {
         )
         ..angularVelocity = Vector3(-spin, 0, xAway.sign * spin * 0.55);
 
-      // Resolve the hit node back to its rock entity (the index walks ancestors,
-      // so a hit on a child mesh still resolves) and attach a scaled hit
-      // reaction — no rebuilt node/entity maps, no scan of all rocks.
+      // The index walks ancestors, so a hit on a child mesh still resolves to
+      // its rock entity.
       if (entity != null) {
         if (projectile.charged) projectile.hitRocks.add(entity.index);
         commands.insert<RockHitReaction>(
@@ -169,18 +171,14 @@ final class UpdateProjectilesSystem extends GameSystem {
 
 // --- Shared helpers used across the projectile parts (charge VFX, reticle) ---
 
-/// Eases [value] a fraction [rate] (0..1) of the way toward [target]; a simple
-/// frame-rate-scaled lerp used for charge, opacity and show factors.
 double _approach(double value, double target, double rate) {
   final a = rate.clamp(0.0, 1.0);
   return value + (target - value) * a;
 }
 
-/// Writes a uniform-scaled local transform at (x,y,z) onto [node] in place.
 void _placeUniform(Node node, double x, double y, double z, double s) =>
     _place(node, x, y, z, s, s, s);
 
-/// Writes a local transform at (x,y,z) with per-axis scale onto [node] in place.
 void _place(
   Node node,
   double x,

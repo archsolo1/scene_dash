@@ -1,12 +1,10 @@
 part of '../player.dart';
 
-/// Tags the single player entity.
 @Tag()
 final class Player {
   const Player();
 }
 
-/// Which side of the player a crab leg is attached to.
 enum CrabLegSide {
   left(-1),
   right(1);
@@ -16,7 +14,7 @@ enum CrabLegSide {
   final int sign;
 }
 
-/// Folded or extended local-space target for one crab leg.
+/// Local-space target (collapsed or extended) for one crab leg.
 final class CrabLegPose {
   const CrabLegPose({
     required this.rootX,
@@ -41,7 +39,6 @@ final class CrabLegPose {
   final double lowerScale;
 }
 
-/// Direct node references and timing metadata for one visual-only crab leg.
 final class CrabLegVisual {
   const CrabLegVisual({
     required this.root,
@@ -70,7 +67,6 @@ final class CrabLegVisual {
   final int slot;
 }
 
-/// Pure gait values used by the animation system and unit tests.
 final class CrabLegGaitSample {
   const CrabLegGaitSample({
     required this.extension,
@@ -132,15 +128,10 @@ CrabLegGaitSample sampleCrabLegGait({
   );
 }
 
-/// Player-owned feedback nodes and their unique materials, created once with the
-/// player and animated in place by feature systems (charge VFX from the
-/// projectiles feature, shield VFX from the collectables feature).
-///
-/// All nodes are children of the player root, so the physics-driven sync (which
-/// owns the root transform) never disturbs them. They are hidden with a
-/// zero-scale local transform rather than added/removed each activation. The
-/// materials are unique to the player, so per-frame colour/alpha changes never
-/// leak into any other entity.
+/// Player-owned feedback nodes (charge and shield VFX, crab legs), children of
+/// the player root so the physics-driven sync never disturbs them. Hidden with
+/// a zero-scale transform rather than added/removed; materials are unique to
+/// the player so per-frame colour changes never leak into other entities.
 @ObjectComponent()
 final class PlayerVisuals {
   PlayerVisuals._({
@@ -158,7 +149,6 @@ final class PlayerVisuals {
     required this.shieldBadgeMaterial,
   });
 
-  /// Builds the feedback nodes and their unique materials, all initially hidden.
   factory PlayerVisuals.create() {
     final chargeOrbMaterial = _blendMaterial(_chargeBaseColor, _chargeEmissive);
     final chargeBeamMaterial = _blendMaterial(
@@ -233,7 +223,6 @@ final class PlayerVisuals {
     );
   }
 
-  /// Adds every feedback node under the player [root].
   void attachTo(Node root) {
     root
       ..add(chargeOrb)
@@ -262,30 +251,17 @@ final class PlayerVisuals {
   final Node shieldBadge;
   final PhysicallyBasedMaterial shieldBadgeMaterial;
 
-  /// Visual-only animation phases (radians) for the pulse/breathe loops. These
-  /// drive look, not gameplay timing — the blaster and shield own the truth.
+  // Visual-only animation state, eased across frames by the VFX systems; the
+  // blaster and shield resources own the gameplay truth.
   double chargePhase = 0;
   double shieldPhase = 0;
-
-  /// Eased 0..1 charge-orb show factor, so release/cancel shrinks it cleanly.
   double chargeShow = 0;
-
-  /// 0..1 unfold state for every crab leg. Fixed per-leg delays stagger it.
   double legExtension01 = 0;
-
-  /// Continuous procedural gait phase. Direction mirrors stride only; it does
-  /// not reset this phase.
   double gaitPhase = 0;
-
-  /// Eased 0..1 shield-bubble show factor, driven by the shield VFX system.
   double shieldShow = 0;
-
-  /// 0..1 activation-pop progress for the shield badge overshoot; set to 1 when
-  /// a shield is collected and eased back down by the shield VFX system.
   double badgePop = 0;
 
-  /// Tracks the shield's active state across frames so the shield VFX system can
-  /// fire the activation pop on the inactive -> active edge.
+  /// Lets the shield VFX system fire the pop on the inactive -> active edge.
   bool shieldWasActive = false;
 
   Iterable<CrabLegVisual> get allLegs sync* {
@@ -301,10 +277,6 @@ final class PlayerVisuals {
     }
   }
 
-  // Animation systems mutate each node's own `localTransform` matrix in place
-  // and re-assign it (to trip the dirty flag), so per-frame feedback allocates
-  // no new matrices.
-
   static final Vector4 _chargeBaseColor = Vector4(0.4, 0.9, 1.0, 0.7);
   static final Vector4 _chargeEmissive = Vector4(0.3, 0.9, 1.2, 1);
 
@@ -319,8 +291,7 @@ final class PlayerVisuals {
     segments: 8,
     rings: 6,
   );
-  // A unit sphere scaled long in Y by the charge VFX system into a cylinder-like
-  // beam (no cylinder/capsule primitive exists in flutter_scene 0.18).
+  // Scaled long in Y into a beam — flutter_scene 0.18 has no cylinder primitive.
   static final _beamGeometry = SphereGeometry(
     radius: 1,
     segments: 12,

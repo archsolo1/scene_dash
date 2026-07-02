@@ -1,14 +1,8 @@
 part of '../player.dart';
 
 /// The player: a kinematic sphere driven by Rapier's character controller.
-///
-/// The node carries everything physics needs, and [PhysicsDriven] tells the
-/// integration's generic transform sync to leave it alone. The controller owns
-/// the transform while playing, including the shove applied after a rock hit.
-///
-/// The player also carries its feedback nodes ([PlayerVisuals]): the charge
-/// orb/beam and the shield bubble/badge are built once and attached as children
-/// here, then animated in place by feature systems.
+/// [PhysicsDriven] tells the generic transform sync to leave the node alone;
+/// the feedback nodes ([PlayerVisuals]) are built once and attached as children.
 @Bundle()
 final class PlayerBundle with _$PlayerBundle {
   final Player player;

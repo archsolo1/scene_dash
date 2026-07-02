@@ -41,6 +41,17 @@ abstract interface class AppBuilder {
     RunCondition? runIf,
   });
 
+  /// Registers a state machine for [S] (normally an enum), starting at
+  /// [initial].
+  ///
+  /// Inserts a `CurrentState<S>` and a `NextState<S>` resource. Systems queue
+  /// transitions through `NextState<S>.set(...)`; the app applies them at
+  /// `App.applyStateTransitions()`, running the `OnExit`/`OnEnter` schedules
+  /// of the values involved. `OnEnter(initial)` runs once during `App.start()`,
+  /// after the startup schedule. Gate steady-state systems with
+  /// `runIf: inState(...)`.
+  AppBuilder addState<S extends Object>(S initial);
+
   /// Declares an event channel for event type [T] (idempotent).
   ///
   /// [retainedUpdates] bounds how many event-maintenance passes (normally one

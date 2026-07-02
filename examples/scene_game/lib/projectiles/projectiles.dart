@@ -30,11 +30,9 @@ part 'vfx/charge_vfx.dart';
 part 'vfx/impact_vfx.dart';
 part 'vfx/reticle.dart';
 
-/// Installs the player's blaster: tap-to-burst, hold-to-charge, the charged
-/// projectile, charge VFX, pooled impact VFX and the lock-on reticle.
-///
-/// The [Blaster] is constructed once in `main()` and shared with the HUD, so the
-/// plugin receives it and is the sole place it is registered as a resource.
+/// Installs the player's blaster, projectiles, charge/impact VFX and the
+/// lock-on reticle. The [Blaster] is constructed in `main()` and shared with
+/// the HUD; this plugin is the sole place it is registered.
 @GamePlugin()
 final class ProjectilesPlugin extends Plugin {
   const ProjectilesPlugin({required this.blaster});
@@ -47,8 +45,7 @@ final class ProjectilesPlugin extends Plugin {
       ..insertResource<Blaster>(blaster)
       ..insertResource<ImpactVfx>(ImpactVfx())
       ..insertResource<LockOnReticle>(LockOnReticle())
-      // Shooting reads the player position after movePlayer has moved it this
-      // fixed step, so order it explicitly behind that system.
+      // Shooting reads the player position after movePlayer has moved it.
       ..addSystem(
         shootProjectilesSystem,
         schedule: Schedules.fixedPrePhysics,

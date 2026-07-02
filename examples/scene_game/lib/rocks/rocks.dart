@@ -32,7 +32,7 @@ final class RocksPlugin extends Plugin {
       ..addSystem(
         spawnRocksSystem,
         schedule: Schedules.fixedPrePhysics,
-        runIf: playing,
+        runIf: inState(GameStatus.playing),
       )
       ..addSystem(cleanupRocksSystem, schedule: Schedules.update)
       ..addSystem(updateRockHitReactionsSystem, schedule: Schedules.update)

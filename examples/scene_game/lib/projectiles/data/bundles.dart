@@ -10,11 +10,8 @@ final class ProjectileBundle with _$ProjectileBundle {
   final SceneNodeRef node;
   final PhysicsDriven physics = const PhysicsDriven();
 
-  // Every projectile is visually identical within its kind, so geometry and
-  // materials never change between spawns — build them once and share them
-  // instead of rebuilding engine geometry/buffers on each high-churn spawn.
-  // Charged strength is shown with transform scale on the visual child, not a
-  // per-shot material.
+  // Geometry and materials are shared across spawns; charged strength is shown
+  // with transform scale on the visual child, not a per-shot material.
   static final Material _material = PhysicallyBasedMaterial()
     ..baseColorFactor = Vector4(0.5, 0.9, 1.0, 1)
     ..emissiveFactor = Vector4(0.3, 0.85, 1.0, 1)
@@ -29,8 +26,6 @@ final class ProjectileBundle with _$ProjectileBundle {
     alpha: 0.2,
   );
 
-  // One shared charged look (a hotter violet-white), distinct from the cyan
-  // burst pellet.
   static final Material _chargedMaterial = PhysicallyBasedMaterial()
     ..baseColorFactor = Vector4(0.86, 0.72, 1.0, 1)
     ..emissiveFactor = Vector4(0.72, 0.42, 1.15, 1)
@@ -59,10 +54,8 @@ final class ProjectileBundle with _$ProjectileBundle {
     final trailLength = charge > 0 ? scale * 2.4 : 1.0;
     final trailOffsetZ = charge > 0 ? 0.38 * trailLength : 0.38;
 
-    // The visual is a child of the physics-driven root: the integration writes
-    // the root's local transform (translation + rotation) from the Rapier body
-    // every frame, which would erase a root scale, so the charged size lives on
-    // this untouched child instead.
+    // The Rapier sync rewrites the root's local transform every frame (which
+    // would erase a root scale), so the charged size lives on this child.
     final visual =
         Node(
             mesh: Mesh(_geometry, mainMaterial),

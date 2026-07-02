@@ -1,11 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:scene_dash/scene_dash.dart';
 import 'package:scene_game/game/game_state.dart';
 
-/// Pure-logic coverage for the run's loss/reset state machine - no scene or GPU.
+/// Pure-logic coverage for the run's data and its `GameStatus` state machine —
+/// no scene or GPU.
 void main() {
-  test('a fresh game starts playing with a clean timer', () {
+  test('a fresh game has a clean timer and no loss reason', () {
     final game = GameState();
-    expect(game.status, GameStatus.playing);
     expect(game.survived, 0);
     expect(game.lostReason, isNull);
   });
@@ -18,12 +19,11 @@ void main() {
     expect(game.survivedTenths, 15);
   });
 
-  test('lose transitions once and keeps the first reason', () {
-    final game = GameState()..lose('You fell off the platform');
-    expect(game.status, GameStatus.lost);
+  test('the first recorded loss reason wins', () {
+    final game = GameState()..recordLoss('You fell off the platform');
     expect(game.lostReason, 'You fell off the platform');
 
-    game.lose('A later loss reason');
+    game.recordLoss('A later loss reason');
     expect(
       game.lostReason,
       'You fell off the platform',
@@ -31,13 +31,25 @@ void main() {
     );
   });
 
-  test('reset returns the game to a clean playing state', () {
+  test('reset returns the game to clean run data', () {
     final game = GameState()
       ..addSurvival(5)
-      ..lose('You fell off the platform')
+      ..recordLoss('You fell off the platform')
       ..reset();
-    expect(game.status, GameStatus.playing);
     expect(game.survived, 0);
     expect(game.lostReason, isNull);
+  });
+
+  test('the GameStatus machine starts playing and transitions to lost', () {
+    final app = App()..addState<GameStatus>(GameStatus.playing);
+    app.start();
+
+    final status = app.world.resource<CurrentState<GameStatus>>();
+    expect(status.value, GameStatus.playing);
+
+    app.world.resource<NextState<GameStatus>>().set(GameStatus.lost);
+    app.applyStateTransitions();
+    expect(status.value, GameStatus.lost);
+    expect(status.previous, GameStatus.playing);
   });
 }

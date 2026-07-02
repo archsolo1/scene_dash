@@ -48,14 +48,16 @@ void main() {
         rockPosition: Vector3(0, 5, 0),
       );
 
-    final first = knockback.step(dt);
-    final second = knockback.step(dt);
+    // step() returns one reused scratch vector, so consume each result
+    // before the next call — the same contract gameplay code follows.
+    final firstLength = knockback.step(dt).length;
+    final secondLength = knockback.step(dt).length;
     knockback.reset();
-    final afterReset = knockback.step(dt);
+    final afterResetLength = knockback.step(dt).length;
 
-    expect(first.length, closeTo(knockbackPushSpeed * dt, 1e-6));
-    expect(second.length, lessThan(first.length));
-    expect(afterReset.length, 0);
+    expect(firstLength, closeTo(knockbackPushSpeed * dt, 1e-6));
+    expect(secondLength, lessThan(firstLength));
+    expect(afterResetLength, 0);
   });
 
   test('fall step accelerates downward until grounded', () {

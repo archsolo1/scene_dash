@@ -42,8 +42,12 @@ final class EcsFrameLoop {
     if (!resources.contains<FixedTime>()) resources.insert(FixedTime());
   }
 
-  /// Frame start: update [FrameTime], run [Schedules.frameStart], then advance
-  /// event channels for the new frame.
+  /// Frame start: update [FrameTime], run [Schedules.frameStart], apply
+  /// pending state transitions (OnExit/OnEnter), then advance event channels
+  /// for the new frame.
+  ///
+  /// Transitions apply before [onCommandBoundary], so nodes spawned by
+  /// `OnEnter` systems are mounted before the frame's fixed/update steps.
   void frameStart(Duration elapsed, double deltaSeconds) {
     // Advance the profiler frame counter (if profiling is enabled) at the one
     // per-frame boundary, so timings can be attributed to a frame number.
@@ -53,6 +57,7 @@ final class EcsFrameLoop {
       ..elapsed = elapsed
       ..frame += 1;
     app.runSchedule(Schedules.frameStart);
+    app.applyStateTransitions();
     onCommandBoundary?.call();
     app.updateEvents();
   }

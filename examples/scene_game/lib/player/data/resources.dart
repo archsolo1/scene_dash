@@ -1,14 +1,14 @@
 part of '../player.dart';
 
-/// Player-owned shove state. Rules decide when a rock has contacted the player;
-/// the player feature decides how that contact becomes controller movement.
+/// Player-owned shove state: rules decide when a rock contacted the player;
+/// this decides how that becomes controller movement.
 final class PlayerKnockback {
   final Vector3 _velocity = Vector3.zero();
   final Vector3 _displacement = Vector3.zero();
   double _fallVelocityY = 0;
 
-  /// Adds a shove away from the rock, falling back to down-ramp when centres
-  /// overlap closely enough that the contact direction is ambiguous.
+  /// Adds a shove away from the rock; falls back to down-ramp when the centres
+  /// overlap.
   void pushFromRock({
     required Vector3 playerPosition,
     required Vector3 rockPosition,
@@ -26,10 +26,8 @@ final class PlayerKnockback {
   }
 
   /// Returns this fixed step's horizontal displacement and damps the stored
-  /// shove. Falling is handled separately once the player leaves the ramp.
-  ///
-  /// The returned vector is owned by this resource and rewritten by the next
-  /// [step] call; consume it within the same step.
+  /// shove. The returned vector is rewritten by the next call — consume it
+  /// within the same step.
   Vector3 step(double dt) {
     if (_velocity.length2 < 0.0001) {
       _velocity.setZero();
@@ -49,13 +47,12 @@ final class PlayerKnockback {
     return _displacement;
   }
 
-  /// Returns this fixed step's falling displacement while off the ramp.
+  /// This fixed step's falling displacement while off the ramp.
   double fallStep(double dt) {
     _fallVelocityY -= gravityStrength * dt;
     return _fallVelocityY * dt;
   }
 
-  /// The controller has grounded the player on the ramp.
   void ground() => _fallVelocityY = 0;
 
   void reset() {
